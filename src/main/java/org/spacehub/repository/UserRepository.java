@@ -1,6 +1,6 @@
 package org.spacehub.repository;
 
-import org.spacehub.user.User;
+import org.spacehub.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

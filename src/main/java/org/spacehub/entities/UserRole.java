@@ -1,4 +1,4 @@
-package org.spacehub.user;
+package org.spacehub.entities;
 
 public enum UserRole {
   USER,

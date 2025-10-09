@@ -1,5 +1,5 @@
 
-package org.spacehub.user;
+package org.spacehub.entities;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
