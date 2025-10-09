@@ -1,0 +1,46 @@
+name: CI - SpaceHub Backend
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - somil
+      - monu
+  pull_request:
+    branches:
+      - main
+      - development
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up PostgreSQL
+        uses: harmon758/postgresql-action@v1
+        with:
+          postgresql version: '15'
+          postgresql db: registration
+          postgresql user: username
+          postgresql password: password
+
+      - name: Build and run tests
+        run: mvn -B clean verify
