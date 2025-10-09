@@ -1,3 +1,4 @@
+
 package org.spacehub.user;
 
 import jakarta.persistence.Entity;
@@ -30,7 +31,7 @@ public class User implements UserDetails {
   @Id
   @GeneratedValue(
     strategy = GenerationType.SEQUENCE,
-    generator = "student_sequence"
+    generator = "user_sequence"
   )
   private Long id;
   private String firstName;
