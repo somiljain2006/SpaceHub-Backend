@@ -1,7 +1,6 @@
-package org.spacehub.authentication.user;
+package org.spacehub.user;
 
 public enum UserRole {
-    ADMIN,
-    MEMBER,
-    WORKSPACE OWNER
-    }
+  USER,
+  ADMIN
+}
