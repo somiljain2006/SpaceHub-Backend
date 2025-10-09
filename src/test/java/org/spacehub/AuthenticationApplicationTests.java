@@ -1,4 +1,4 @@
-package org.spacehub.authentication;
+package org.spacehub;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
