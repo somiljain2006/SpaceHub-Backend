@@ -1,4 +1,4 @@
-package org.spacehub.authentication.user;
+package org.spacehub.user;
 
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -9,7 +9,7 @@ public class User{
     private String username;
     private String email;
     private String password;
-    private UserRole roles;
+    private org.spacehub.authentication.user.UserRole roles;
     private Boolean enabled;
     private Boolean locked;
 
