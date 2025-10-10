@@ -1,10 +1,11 @@
-package org.spacehub.authentication;
+package org.spacehub;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class AuthenticationApplicationTests {
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+class HomepageTests {
 
     @Test
     void contextLoads() {

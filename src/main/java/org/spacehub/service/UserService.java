@@ -21,5 +21,5 @@ public class UserService implements UserDetailsService {
         .orElseThrow(() ->
             new UsernameNotFoundException(String.format(Exception_msg, email))
         );
-  }
+    }
 }

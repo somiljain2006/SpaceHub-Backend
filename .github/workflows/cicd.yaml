@@ -17,19 +17,6 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: notes
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-
-    env:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/notes
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
