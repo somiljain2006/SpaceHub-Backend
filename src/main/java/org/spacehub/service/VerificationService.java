@@ -1,37 +1,33 @@
 package org.spacehub.service;
 
-import org.spacehub.entity.User;
-import org.spacehub.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.spacehub.entities.User;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 
 @Service
 public class VerificationService {
 
-    @Autowired
-    private UserRepository userRepository;
+  private final UserNameService userNameService;
+  private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserNameService userNameService;
+  public VerificationService(UserNameService userNameService, AuthenticationManager authenticationManager) {
+    this.userNameService = userNameService;
+    this.authenticationManager = authenticationManager;
+  }
 
-    @Autowired
-    AuthenticationManager authenticationManager;
+  public String check(User user) {
+    Authentication authentication = authenticationManager
+      .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
 
-
-    public String check(User user) {
-        Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword()));
-
-        if (authentication.isAuthenticated()) {
-            return userNameService.generateToken(user);
-        }
-        else {
-            return "null";
-        }
-
+    if (authentication.isAuthenticated()) {
+      UserDetails principal = (UserDetails) authentication.getPrincipal();
+      return userNameService.generateToken(principal);
+    } else {
+      return null;
     }
-
+  }
 }
+

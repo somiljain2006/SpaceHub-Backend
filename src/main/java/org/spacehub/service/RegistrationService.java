@@ -1,26 +1,32 @@
 package org.spacehub.service;
 
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.User;
 import org.spacehub.entities.UserRole;
 import org.spacehub.repository.UserRepository;
 import org.spacehub.security.ConfirmationToken;
 import org.spacehub.security.EmailValidator;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
-@AllArgsConstructor
 public class RegistrationService {
 
+  private final PasswordEncoder passwordEncoder;
   private final EmailValidator emailValidator;
-  private final BCryptPasswordEncoder bCryptPasswordEncoder;
   private final UserRepository userRepository;
   private final ConfirmationTokenService confirmationTokenService;
+
+  public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator, UserRepository userRepository,
+                             ConfirmationTokenService confirmationTokenService) {
+    this.passwordEncoder = passwordEncoder;
+    this.emailValidator = emailValidator;
+    this.userRepository = userRepository;
+    this.confirmationTokenService = confirmationTokenService;
+  }
 
   @Transactional
   public String register(RegistrationRequest request) {
@@ -35,9 +41,10 @@ public class RegistrationService {
       request.firstName(),
       request.lastName(),
       request.email(),
-      bCryptPasswordEncoder.encode(request.password()),
+      passwordEncoder.encode(request.password()),
       UserRole.USER
     );
+    newUser.setEnabled(true);
     userRepository.save(newUser);
     String token = UUID.randomUUID().toString();
     ConfirmationToken confirmationToken = new ConfirmationToken(

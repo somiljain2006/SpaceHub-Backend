@@ -9,13 +9,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.spacehub.entities.User;
 
 import java.time.LocalDateTime;
 
 @Data
-@NoArgsConstructor
 @Entity
 public class ConfirmationToken {
 
@@ -57,5 +55,8 @@ public class ConfirmationToken {
     this.createdAt = createdAt;
     this.expiresAt = expiresAt;
     this.user = user;
+  }
+
+  public ConfirmationToken() {
   }
 }
