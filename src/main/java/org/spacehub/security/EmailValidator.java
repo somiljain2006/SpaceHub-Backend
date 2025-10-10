@@ -1,10 +1,10 @@
 package org.spacehub.security;
 
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-@Service
+@Component
 public class EmailValidator implements Predicate<String> {
 
   private static final String emailRegex =

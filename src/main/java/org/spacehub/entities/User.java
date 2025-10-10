@@ -1,5 +1,6 @@
 package org.spacehub.entities;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -7,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.Collections;
 @EqualsAndHashCode
 @NoArgsConstructor
 @Entity
+@Table(name = "users")
 public class User implements UserDetails {
 
   @SequenceGenerator(
@@ -35,6 +38,7 @@ public class User implements UserDetails {
   private Long id;
   private String firstName;
   private String lastName;
+  @Column(unique = true)
   private String email;
   private String password;
   @Enumerated(EnumType.STRING)
@@ -91,3 +95,4 @@ public class User implements UserDetails {
     return enabled;
   }
 }
+
