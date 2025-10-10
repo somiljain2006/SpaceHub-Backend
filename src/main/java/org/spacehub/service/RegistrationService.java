@@ -6,9 +6,12 @@ import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.User;
 import org.spacehub.entities.UserRole;
 import org.spacehub.repository.UserRepository;
+import org.spacehub.security.ConfirmationToken;
 import org.spacehub.security.EmailValidator;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @AllArgsConstructor
@@ -17,6 +20,7 @@ public class RegistrationService {
   private final EmailValidator emailValidator;
   private final BCryptPasswordEncoder bCryptPasswordEncoder;
   private final UserRepository userRepository;
+  private final ConfirmationTokenService confirmationTokenService;
 
   @Transactional
   public String register(RegistrationRequest request) {
@@ -35,6 +39,14 @@ public class RegistrationService {
       UserRole.USER
     );
     userRepository.save(newUser);
-    return "Registered successfully";
+    String token = UUID.randomUUID().toString();
+    ConfirmationToken confirmationToken = new ConfirmationToken(
+      token,
+      LocalDateTime.now(),
+      LocalDateTime.now().plusMinutes(15),
+      newUser
+    );
+    confirmationTokenService.saveConfirmationToken(confirmationToken);
+    return token;
   }
 }
