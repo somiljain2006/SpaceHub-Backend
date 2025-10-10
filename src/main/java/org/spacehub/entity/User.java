@@ -1,4 +1,4 @@
-package org.spacehub.user;
+package org.spacehub.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

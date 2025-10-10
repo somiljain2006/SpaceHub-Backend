@@ -1,6 +1,5 @@
 package org.spacehub.service;
 
-
 import lombok.AllArgsConstructor;
 import org.spacehub.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
