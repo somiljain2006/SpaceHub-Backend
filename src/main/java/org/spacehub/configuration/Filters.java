@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.spacehub.service.UserNameService;
 import org.spacehub.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,24 +21,26 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class Filters extends OncePerRequestFilter {
 
+    @Autowired
     UserNameService usernameService;
-    private UserService userService;
+    UserService  userService;
+
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         final String Header = request.getHeader("Authorization");
+        String token = null;
+        String userEmail = null;
 
-        if (Header == null || !Header.startsWith("Bearer ")){
-            filterChain.doFilter(request, response);
+        if (Header != null || Header.startsWith("Bearer ")){
+            token = Header.substring(7);
+            userEmail = usernameService.extractUsername(token);
         }
 
-        final String token = Header.substring(7);
 
-        final String userEmail = usernameService.getUsername(token);
-
-        if (userEmail != null || SecurityContextHolder.getContext().getAuthentication() != null) {
+        if (userEmail != null || SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userService.loadUserByUsername(userEmail);
 
             if (usernameService.validToken(token, userDetails)) {

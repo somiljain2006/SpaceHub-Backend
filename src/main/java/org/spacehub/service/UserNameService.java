@@ -8,7 +8,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +18,7 @@ public class UserNameService {
 
     private static final String SECRET_KEY = "7de8e1761eeac40efc9314980ebd00fbd55978f497b50ffee42902bba14d0596";
 
-    public String getUsername(String token) {
+    public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -35,7 +34,7 @@ public class UserNameService {
                 .compact();
     }
 
-    public String generateTokens(UserDetails userDetails) {
+    public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
@@ -46,21 +45,20 @@ public class UserNameService {
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith((SecretKey) getSignInKey())
+                .verifyWith(getSignInKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
-    private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private SecretKey getSignInKey() {
+        byte[] keys_array = Decoders.BASE64.decode(SECRET_KEY);
+        return Keys.hmacShaKeyFor(keys_array);
     }
 
     public boolean validToken(String token, UserDetails userDetails) {
-        final String username = getUsername(token);
+        final String username = extractUsername(token);
         return (!isTokenExpired(token) && username.equals(userDetails.getUsername()));
-
     }
 
     private boolean isTokenExpired(String token) {
