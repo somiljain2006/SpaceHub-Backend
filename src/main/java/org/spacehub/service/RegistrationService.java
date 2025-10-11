@@ -19,13 +19,16 @@ public class RegistrationService {
   private final EmailValidator emailValidator;
   private final UserRepository userRepository;
   private final ConfirmationTokenService confirmationTokenService;
+  private final OTPService otpService;
 
-  public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator, UserRepository userRepository,
-                             ConfirmationTokenService confirmationTokenService) {
+  public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator,
+                             UserRepository userRepository, ConfirmationTokenService confirmationTokenService,
+                             OTPService otpService) {
     this.passwordEncoder = passwordEncoder;
     this.emailValidator = emailValidator;
     this.userRepository = userRepository;
     this.confirmationTokenService = confirmationTokenService;
+    this.otpService = otpService;
   }
 
   @Transactional
@@ -54,6 +57,8 @@ public class RegistrationService {
       newUser
     );
     confirmationTokenService.saveConfirmationToken(confirmationToken);
+
+    otpService.sendOTP(newUser.getEmail());
     return token;
   }
 }

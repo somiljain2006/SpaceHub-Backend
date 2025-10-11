@@ -12,10 +12,12 @@ public class VerificationService {
 
   private final UserNameService userNameService;
   private final AuthenticationManager authenticationManager;
+  private final OTPService otpService;
 
-  public VerificationService(UserNameService userNameService, AuthenticationManager authenticationManager) {
+  public VerificationService(UserNameService userNameService, AuthenticationManager authenticationManager, OTPService otpService) {
     this.userNameService = userNameService;
     this.authenticationManager = authenticationManager;
+    this.otpService = otpService;
   }
 
   public String check(User user) {
@@ -24,6 +26,7 @@ public class VerificationService {
 
     if (authentication.isAuthenticated()) {
       UserDetails principal = (UserDetails) authentication.getPrincipal();
+      otpService.sendOTP(user.getUsername());
       return userNameService.generateToken(principal);
     } else {
       return null;
