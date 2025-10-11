@@ -2,6 +2,7 @@ package org.spacehub.controller;
 
 import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
+import org.spacehub.security.EmailValidator;
 import org.spacehub.service.OTPService;
 import org.spacehub.service.VerificationService;
 import org.spacehub.service.RegistrationService;
@@ -20,17 +21,24 @@ public class UserController {
 
   private final VerificationService verificationService;
   private final RegistrationService registrationService;
+  private final EmailValidator emailValidator;
 
   @Autowired
   private OTPService otpService;
 
-  public UserController(VerificationService verificationService, RegistrationService registrationService) {
+  public UserController(VerificationService verificationService, RegistrationService registrationService, EmailValidator emailValidator) {
     this.verificationService = verificationService;
     this.registrationService = registrationService;
+    this.emailValidator = emailValidator;
   }
 
   @PostMapping("/login")
   public ResponseEntity<String> login(@RequestBody User user) {
+    String email = emailValidator.normalize(user.getEmail());
+    if (!emailValidator.test(email)) {
+      return ResponseEntity.badRequest().body("Invalid email format!");
+    }
+    user.setEmail(email);
     String token = verificationService.check(user);
     if (token == null) return ResponseEntity.status(401).body("Invalid credentials");
     return ResponseEntity.ok(token);
@@ -38,6 +46,11 @@ public class UserController {
 
   @PostMapping("/registration")
   public ResponseEntity<String> register(@RequestBody RegistrationRequest request) {
+    String email = emailValidator.normalize(request.getEmail());
+    if (!emailValidator.test(email)) {
+      return ResponseEntity.badRequest().body("Invalid email format!");
+    }
+    request.setEmail(email);
     try {
       String result = registrationService.register(request);
       return ResponseEntity.status(201).body(result);
@@ -50,9 +63,18 @@ public class UserController {
 
   @GetMapping("/sendotp")
   public ResponseEntity<String> sendOTP(@RequestParam(required = false) String email) {
+    email = emailValidator.normalize(email);
+    if (email == null || !emailValidator.test(email)) {
+      return ResponseEntity.badRequest().body("Invalid or missing email!");
+    }
     try {
+      boolean allowed = otpService.canSendOTP(email);
+      if (!allowed) {
+        long secondsLeft = otpService.cooldownTime(email);
+        return ResponseEntity.badRequest().body("Please wait " + secondsLeft + " seconds before requesting OTP again.");
+      }
       otpService.sendOTP(email);
-      return ResponseEntity.ok("OTP sent successfully to " + (email != null ? email : "default email"));
+      return ResponseEntity.ok("OTP sent successfully to " + email);
     } catch (Exception e) {
       return ResponseEntity.status(500).body("Error sending OTP: " + e.getMessage());
     }
@@ -67,4 +89,5 @@ public class UserController {
       return ResponseEntity.status(400).body("OTP is invalid or expired");
     }
   }
+
 }

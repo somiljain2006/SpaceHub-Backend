@@ -6,6 +6,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -15,9 +17,11 @@ public class OTPService {
     private JavaMailSender mailSender;
 
     private final String DEFAULT_EMAIL = "monuchaudharypoonia@gmail.com";
+    private final Map<String, String> otpMap = new HashMap<>();
+    private final Map<String, Instant> sendTimeMap = new HashMap<>();
 
-    private String prev_OTP;
-    private Instant send_Time;
+    private static final int expirySeconds = 300;
+    private static final int cooldownSeconds = 60;
 
     public void sendOTP(String email) {
         if (email == null || email.isEmpty()) {
@@ -27,8 +31,8 @@ public class OTPService {
         int num = new Random().nextInt(1000000);
         String otp = String.format("%06d", num);
 
-        this.prev_OTP = otp;
-        this.send_Time = Instant.now();
+        otpMap.put(email, otp);
+        sendTimeMap.put(email, Instant.now());
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(DEFAULT_EMAIL);
@@ -40,25 +44,20 @@ public class OTPService {
     }
 
     public boolean validateOTP(String otp) {
-        if (prev_OTP == null || send_Time == null) {
-            return false;
-        }
+        return otpMap.containsValue(otp);
+    }
 
-        long timeTakenMillis = Instant.now().toEpochMilli() - send_Time.toEpochMilli();
+    public boolean canSendOTP(String email) {
+        Instant lastSent = sendTimeMap.get(email);
+        if (lastSent == null) return true;
+        return Instant.now().isAfter(lastSent.plusSeconds(cooldownSeconds));
+    }
 
-        if (timeTakenMillis > 3000000) {
-            this.prev_OTP = null;
-            this.send_Time = null;
-            return false;
-        }
 
-        boolean isValid = prev_OTP.equals(otp);
-
-        if (isValid) {
-            this.prev_OTP = null;
-            this.send_Time = null;
-        }
-
-        return isValid;
+    public long cooldownTime(String email) {
+        Instant lastSent = sendTimeMap.get(email);
+        if (lastSent == null) return 0;
+        long diff = Instant.now().getEpochSecond() - lastSent.getEpochSecond();
+        return Math.max(0, cooldownSeconds - diff);
     }
 }

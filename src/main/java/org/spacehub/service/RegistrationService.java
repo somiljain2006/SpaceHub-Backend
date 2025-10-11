@@ -9,6 +9,7 @@ import org.spacehub.security.ConfirmationToken;
 import org.spacehub.security.EmailValidator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -33,28 +34,31 @@ public class RegistrationService {
 
   @Transactional
   public String register(RegistrationRequest request) {
-    boolean isValidEmail = emailValidator.test(request.email());
-    if (!isValidEmail) {
+    String email = request.getEmail();
+    if (!emailValidator.test(email)) {
       throw new IllegalStateException("Invalid email address");
     }
-    if (userRepository.findByEmail(request.email()).isPresent()) {
+
+    if (userRepository.findByEmail(email).isPresent()) {
       throw new IllegalStateException("Email already taken");
     }
+
     User newUser = new User(
-      request.firstName(),
-      request.lastName(),
-      request.email(),
-      passwordEncoder.encode(request.password()),
-      UserRole.USER
+            request.getFirstName(),
+            request.getLastName(),
+            email,
+            passwordEncoder.encode(request.getPassword()),
+            UserRole.USER
     );
     newUser.setEnabled(true);
     userRepository.save(newUser);
+
     String token = UUID.randomUUID().toString();
     ConfirmationToken confirmationToken = new ConfirmationToken(
-      token,
-      LocalDateTime.now(),
-      LocalDateTime.now().plusMinutes(15),
-      newUser
+            token,
+            LocalDateTime.now(),
+            LocalDateTime.now().plusMinutes(15),
+            newUser
     );
     confirmationTokenService.saveConfirmationToken(confirmationToken);
 
