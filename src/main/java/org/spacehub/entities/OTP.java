@@ -12,20 +12,20 @@ import java.time.Instant;
 @Table(name = "otps")
 public class OTP {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column(nullable = false)
-    private String email;
+  @Column(nullable = false)
+  private String email;
 
-    @Column(nullable = false)
-    private String code;
+  @Column(nullable = false)
+  private String code;
 
-    @Column(nullable = false)
-    private Instant createdAt;
+  @Column(nullable = false)
+  private Instant createdAt;
 
-    @Column(nullable = false)
-    private Instant expiresAt;
+  @Column(nullable = false)
+  private Instant expiresAt;
 
 }

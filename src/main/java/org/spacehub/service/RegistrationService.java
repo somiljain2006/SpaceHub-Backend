@@ -23,7 +23,8 @@ public class RegistrationService {
   private final OTPService otpService;
 
   public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator,
-                             UserRepository userRepository, ConfirmationTokenService confirmationTokenService,
+                             UserRepository userRepository,
+                             ConfirmationTokenService confirmationTokenService,
                              OTPService otpService) {
     this.passwordEncoder = passwordEncoder;
     this.emailValidator = emailValidator;

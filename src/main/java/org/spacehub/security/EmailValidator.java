@@ -20,6 +20,9 @@ public class EmailValidator implements Predicate<String> {
   }
 
   public String normalize(String email) {
-    return email == null ? null : email.trim().toLowerCase();
+    if (email == null) {
+      return null;
+    }
+    return email.trim().toLowerCase();
   }
 }

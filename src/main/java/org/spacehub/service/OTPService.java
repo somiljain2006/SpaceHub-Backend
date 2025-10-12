@@ -15,59 +15,59 @@ import java.util.Random;
 @Service
 public class OTPService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+  private final JavaMailSender mailSender;
+  private final OTPRepository otpRepository;
+  private static final int expirySeconds = 300;
+  private static final int cooldownSeconds = 60;
 
-    @Autowired
-    private OTPRepository otpRepository;
+  public OTPService(JavaMailSender mailSender, OTPRepository otpRepository) {
+    this.mailSender = mailSender;
+    this.otpRepository = otpRepository;
+  }
 
-    private final String DEFAULT_EMAIL = "monuchaudharypoonia@gmail.com";
-    private static final int expirySeconds = 300;
-    private static final int cooldownSeconds = 60;
-
-    public void sendOTP(String email) {
-        if (email == null || email.isEmpty()) {
-            email = DEFAULT_EMAIL;
-        }
-
-        int num = new Random().nextInt(1000000);
-        String otpCode = String.format("%06d", num);
-        Instant now = Instant.now();
-
-        OTP otp = new OTP();
-        otp.setEmail(email);
-        otp.setCode(otpCode);
-        otp.setCreatedAt(now);
-        otp.setExpiresAt(now.plusSeconds(expirySeconds));
-
-        otpRepository.save(otp);
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(DEFAULT_EMAIL);
-        message.setTo(email);
-        message.setSubject("OTP Verification");
-        message.setText("Your OTP is: " + otpCode); // send the code, not the OTP object
-
-        mailSender.send(message);
+  public void sendOTP(String email) {
+    String DEFAULT_EMAIL = "monuchaudharypoonia@gmail.com";
+    if (email == null || email.isEmpty()) {
+      email = DEFAULT_EMAIL;
     }
+    int num = new Random().nextInt(1000000);
+    String otpCode = String.format("%06d", num);
+    Instant now = Instant.now();
 
-    public boolean validateOTP(String email, String otpCode) {
-        Optional<OTP> otpOptional = otpRepository.findByEmailAndCode(email, otpCode);
-        return otpOptional.map(otp -> Instant.now().isBefore(otp.getExpiresAt())).orElse(false);
-    }
+    OTP otp = new OTP();
+    otp.setEmail(email);
+    otp.setCode(otpCode);
+    otp.setCreatedAt(now);
+    otp.setExpiresAt(now.plusSeconds(expirySeconds));
 
-    public boolean canSendOTP(String email) {
-        Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
-        return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds() >= cooldownSeconds)
-                .orElse(true);
-    }
+    otpRepository.save(otp);
 
-    public long cooldownTime(String email) {
-        Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
-        return lastOtp.map(otp -> {
-                    long elapsed = Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds();
-                    return Math.max(0, cooldownSeconds - elapsed);
-                })
-                .orElse(0L);
-    }
+    SimpleMailMessage message = new SimpleMailMessage();
+    message.setFrom(DEFAULT_EMAIL);
+    message.setTo(email);
+    message.setSubject("OTP Verification");
+    message.setText("Your OTP is: " + otpCode);
+
+    mailSender.send(message);
+  }
+
+  public boolean validateOTP(String email, String otpCode) {
+    Optional<OTP> otpOptional = otpRepository.findByEmailAndCode(email, otpCode);
+    return otpOptional.map(otp -> Instant.now().isBefore(otp.getExpiresAt())).orElse(false);
+  }
+
+  public boolean canSendOTP(String email) {
+    Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
+    return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(),
+        Instant.now()).getSeconds() >= cooldownSeconds)
+            .orElse(true);
+  }
+
+  public long cooldownTime(String email) {
+    Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
+    return lastOtp.map(otp -> {
+      long elapsed = Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds();
+      return Math.max(0, cooldownSeconds - elapsed);
+    }).orElse(0L);
+  }
 }

@@ -11,7 +11,6 @@ import org.spacehub.service.OTPService;
 import org.spacehub.service.UserService;
 import org.spacehub.service.VerificationService;
 import org.spacehub.service.RegistrationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,23 +25,25 @@ public class UserController {
   private final RegistrationService registrationService;
   private final EmailValidator emailValidator;
 
-  @Autowired
-  private OTPService otpService;
+  private final OTPService otpService;
+  private final UserService userService;
 
-  @Autowired
-  private UserService userService;
-
-  public UserController(VerificationService verificationService, RegistrationService registrationService, EmailValidator emailValidator) {
+  public UserController(VerificationService verificationService,
+                        RegistrationService registrationService, EmailValidator emailValidator,
+                        OTPService otpService, UserService userService) {
     this.verificationService = verificationService;
     this.registrationService = registrationService;
     this.emailValidator = emailValidator;
+    this.otpService = otpService;
+    this.userService = userService;
   }
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<String>> login(@RequestBody LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (!emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid email format!", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid email format!", null));
     }
 
     User user = new User();
@@ -51,7 +52,8 @@ public class UserController {
 
     String token = verificationService.check(user);
     if (token == null) {
-      return ResponseEntity.status(401).body(new ApiResponse<>(401, "Invalid credentials", null));
+      return ResponseEntity.status(401).body(new ApiResponse<>(401,
+        "Invalid credentials", null));
     }
     return ResponseEntity.ok(new ApiResponse<>(200, "Login successful", token));
   }
@@ -60,16 +62,20 @@ public class UserController {
   public ResponseEntity<ApiResponse<String>> register(@RequestBody RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (!emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid email format!", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid email format!", null));
     }
     request.setEmail(email);
     try {
       String token = registrationService.register(request);
-      return ResponseEntity.status(201).body(new ApiResponse<>(201, "Registration successful", token));
+      return ResponseEntity.status(201).body(new ApiResponse<>(201,
+        "Registration successful", token));
     } catch (IllegalStateException e) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, e.getMessage(), null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, e.getMessage(),
+        null));
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ApiResponse<>(500, "Registration failed", null));
+      return ResponseEntity.internalServerError().body(new ApiResponse<>(500,
+        "Registration failed", null));
     }
   }
 
@@ -77,14 +83,17 @@ public class UserController {
   public ResponseEntity<ApiResponse<String>> sendOTP(@RequestBody EmailRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (email == null || !emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid or missing email!", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid or missing email!", null));
     }
     if (!otpService.canSendOTP(email)) {
       long secondsLeft = otpService.cooldownTime(email);
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Please wait " + secondsLeft + " seconds before requesting OTP again.", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Please wait " + secondsLeft + " seconds before requesting OTP again.", null));
     }
     otpService.sendOTP(email);
-    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent successfully to " + email, null));
+    return ResponseEntity.ok(new ApiResponse<>(200,
+      "OTP sent successfully to " + email, null));
   }
 
   @PostMapping("/validateotp")
@@ -93,7 +102,8 @@ public class UserController {
     if (valid) {
       return ResponseEntity.ok(new ApiResponse<>(200, "OTP is valid", null));
     } else {
-      return ResponseEntity.status(400).body(new ApiResponse<>(400, "OTP is invalid or expired", null));
+      return ResponseEntity.status(400).body(new ApiResponse<>(400,
+        "OTP is invalid or expired", null));
     }
   }
 
@@ -101,13 +111,16 @@ public class UserController {
   public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody EmailRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (email == null || !emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid email format!", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid email format!", null));
     }
     if (!userService.checkUser(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User with this email does not exist", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "User with this email does not exist", null));
     }
     otpService.sendOTP(email);
-    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email", null));
+    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email",
+      null));
   }
 
 

@@ -14,7 +14,8 @@ public class VerificationService {
   private final AuthenticationManager authenticationManager;
   private final OTPService otpService;
 
-  public VerificationService(UserNameService userNameService, AuthenticationManager authenticationManager, OTPService otpService) {
+  public VerificationService(UserNameService userNameService,
+                             AuthenticationManager authenticationManager, OTPService otpService) {
     this.userNameService = userNameService;
     this.authenticationManager = authenticationManager;
     this.otpService = otpService;
@@ -22,7 +23,8 @@ public class VerificationService {
 
   public String check(User user) {
     Authentication authentication = authenticationManager
-      .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
+      .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(),
+        user.getPassword()));
 
     if (authentication.isAuthenticated()) {
       UserDetails principal = (UserDetails) authentication.getPrincipal();
