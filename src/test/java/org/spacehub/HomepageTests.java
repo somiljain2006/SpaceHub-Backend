@@ -2,17 +2,14 @@ package org.spacehub;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles; // Import this
 
-@SpringBootTest(
-  webEnvironment = SpringBootTest.WebEnvironment.NONE,
-  classes = { Homepage.class, TestSecurityConfig.class },
-  properties = "spring.main.allow-bean-definition-overriding=true"
-)
-@Import(TestSecurityConfig.class)
+@SpringBootTest
+@ActiveProfiles("test")
 class HomepageTests {
 
   @Test
   void contextLoads() {
   }
+
 }
