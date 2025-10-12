@@ -22,4 +22,9 @@ public class UserService implements UserDetailsService {
         new UsernameNotFoundException(String.format("User with email %s has not been found", email))
       );
   }
+
+  public boolean checkUser(String email) {
+    return userRepository.findByEmail(email).isPresent();
+  }
+
 }

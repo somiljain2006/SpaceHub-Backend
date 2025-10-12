@@ -43,8 +43,8 @@ public class User implements UserDetails {
   private String password;
   @Enumerated(EnumType.STRING)
   private UserRole userRole;
-  private Boolean locked = false; // Determine if account is locked
-  private Boolean enabled = false; // For after email verification
+  private Boolean locked = false;
+  private Boolean enabled = false;
 
   public User(String firstName,
                  String lastName,
