@@ -38,8 +38,8 @@ jobs:
         uses: harmon758/postgresql-action@v1
         with:
           postgresql version: '17'
-          postgresql db: registration
-          postgresql user: username
+          postgresql db: somiljain
+          postgresql user: somiljain
           postgresql password: password
 
       - name: Build and run tests

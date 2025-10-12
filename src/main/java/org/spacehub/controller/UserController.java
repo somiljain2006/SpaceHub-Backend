@@ -31,8 +31,8 @@ public class UserController {
   private final EmailValidator emailValidator;
   private final OTPService otpService;
   private final UserService userService;
-  private final UserNameService userNameService;  // inject here
-  private final RefreshTokenService refreshTokenService; // inject here
+  private final UserNameService userNameService;
+  private final RefreshTokenService refreshTokenService;
 
   public UserController(VerificationService verificationService,
                         RegistrationService registrationService, EmailValidator emailValidator,
