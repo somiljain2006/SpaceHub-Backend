@@ -43,4 +43,12 @@ jobs:
           postgresql password: password
 
       - name: Build and run tests
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/somiljain
+          SPRING_DATASOURCE_USERNAME: somiljain
+          SPRING_DATASOURCE_PASSWORD: password
+          SPRING_MAIL_HOST: localhost
+          SPRING_MAIL_PORT: 1025
+          SPRING_MAIL_USERNAME: testuser
+          SPRING_MAIL_PASSWORD: testpass
         run: mvn -B clean verify
