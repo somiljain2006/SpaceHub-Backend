@@ -31,7 +31,7 @@ jobs:
       - name: Build project
         run: mvn clean package -DskipTests
 
-      - name: Upload artifact
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: spacehub-jar
@@ -48,23 +48,31 @@ jobs:
           name: spacehub-jar
           path: .
 
-      - name: Configure SSH access
+      - name: Configure SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Debug SSH connection
+        run: |
+          echo "Testing SSH connection to EC2..."
+          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
+
       - name: Copy JAR to EC2
         run: |
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no spaceHub.jar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/SpaceHub-Backend/target/spaceHub.jar
+          echo "Copying JAR to EC2..."
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no spaceHub.jar ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/SpaceHub-Backend/target/spaceHub.jar
 
       - name: Restart SpaceHub service
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          echo "Restarting SpaceHub service on EC2..."
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             mkdir -p /home/ubuntu/SpaceHub-Backend/logs
-            sudo chown ubuntu:ubuntu /home/ubuntu/SpaceHub-Backend/logs
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/SpaceHub-Backend/logs
             sudo systemctl daemon-reload
             sudo systemctl restart spacehub
             sudo systemctl status spacehub --no-pager
+            echo "Deployment completed successfully"
           EOF
