@@ -13,23 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Build project
-        run: mvn clean package -DskipTests
-
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.8.1
         with:
@@ -37,8 +20,9 @@ jobs:
 
       - name: Deploy to EC2
         run: |
-          scp -o StrictHostKeyChecking=no target/spaceHub.jar ubuntu@ec2-65-0-29-87.ap-south-1.compute.amazonaws.com:/home/ubuntu/SpaceHub-Backend/spaceHub.jar
-          ssh -o StrictHostKeyChecking=no ubuntu@ec2-65-0-29-87.ap-south-1.compute.amazonaws.com << 'EOF'
-            sudo systemctl restart spacehub.service
+          ssh -o StrictHostKeyChecking=no ubuntu@<EC2_PUBLIC_IP> << 'EOF'
+            cd ~/SpaceHub-Backend
+            git pull origin main
+            sudo systemctl restart spacehub.service 
             sudo systemctl status spacehub.service --no-pager
           EOF
