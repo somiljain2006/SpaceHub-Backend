@@ -1,10 +1,6 @@
 package org.spacehub.controller;
 
-import org.spacehub.DTO.EmailRequest;
-import org.spacehub.DTO.LoginRequest;
-import org.spacehub.DTO.OTPRequest;
-import org.spacehub.DTO.RefreshRequest;
-import org.spacehub.DTO.TokenResponse;
+import org.spacehub.DTO.*;
 import org.spacehub.entities.ApiResponse;
 import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
@@ -56,6 +52,12 @@ public class UserController {
         "Invalid email format!", null));
     }
 
+    if (!otpService.canSendOTP(email)) {
+      long secondsLeft = otpService.cooldownTime(email);
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+              "Please wait " + secondsLeft + " seconds before trying to login again.", null));
+    }
+
     User user = new User();
     user.setEmail(email);
     user.setPassword(request.getPassword());
@@ -75,6 +77,13 @@ public class UserController {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
         "Invalid email format!", null));
     }
+
+    if (!otpService.canSendOTP(email)) {
+      long secondsLeft = otpService.cooldownTime(email);
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+              "Please wait " + secondsLeft + " seconds before registering again.", null));
+    }
+
     request.setEmail(email);
     try {
       String token = registrationService.register(request);
@@ -84,6 +93,7 @@ public class UserController {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400, e.getMessage(),
         null));
     } catch (Exception e) {
+      System.out.println(e.getMessage());
       return ResponseEntity.internalServerError().body(new ApiResponse<>(500,
         "Registration failed", null));
     }
@@ -128,10 +138,29 @@ public class UserController {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
         "User with this email does not exist", null));
     }
+    if (!otpService.canSendOTP(email)) {
+      long secondsLeft = otpService.cooldownTime(email);
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+              "Please wait " + secondsLeft + " seconds before requesting OTP again.", null));
+    }
     otpService.sendOTP(email);
     return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email",
       null));
   }
+
+  @PostMapping("/resetpassword")
+  public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody ResetPasswordRequest request) {
+    String email = emailValidator.normalize(request.getEmail());
+    String newPassword = request.getNewPassword();
+
+    if (email == null || !emailValidator.test(email)) {
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid email format!", null));
+    }
+
+    userService.updatePassword(email, newPassword);
+    return ResponseEntity.ok(new ApiResponse<>(200, "Password has been reset successfully", null));
+  }
+
 
   @PostMapping("/token/refresh")
   public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
