@@ -27,8 +27,7 @@ public class AppConfig {
       @Override
       public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         String username = authentication.getName();
-        String presentedPassword = authentication.getCredentials() == null ? "" : authentication.getCredentials().toString();
-
+        String presentedPassword = String.valueOf(authentication.getCredentials());
         UserDetails user = userDetailsService.loadUserByUsername(username);
 
         if (!passwordEncoder.matches(presentedPassword, user.getPassword())) {

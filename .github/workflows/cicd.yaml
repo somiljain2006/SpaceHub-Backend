@@ -1,46 +1,28 @@
-name: CI - SpaceHub Backend
+name: CI/CD - SpaceHub Backend
 
 on:
   push:
     branches:
       - main
-      - development
-      - somil
-      - monu
-  pull_request:
-    branches:
-      - main
-      - development
 
 jobs:
-  build-and-test:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.1
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Set up PostgreSQL
-        uses: harmon758/postgresql-action@v1
-        with:
-          postgresql version: '17'
-          postgresql db: registration
-          postgresql user: username
-          postgresql password: password
-
-      - name: Build and run tests
-        run: mvn -B clean verify
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@<EC2_PUBLIC_IP> << 'EOF'
+            cd ~/SpaceHub-Backend
+            git pull origin main
+            sudo systemctl restart spacehub.service 
+            sudo systemctl status spacehub.service --no-pager
+          EOF

@@ -1,5 +1,6 @@
 package org.spacehub.service;
 
+import org.spacehub.DTO.TokenResponse;
 import org.spacehub.entities.User;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -12,25 +13,37 @@ public class VerificationService {
 
   private final UserNameService userNameService;
   private final AuthenticationManager authenticationManager;
-  private final OTPService otpService;
+  private final RefreshTokenService refreshTokenService;
+  private final UserService userService;
 
-  public VerificationService(UserNameService userNameService, AuthenticationManager authenticationManager, OTPService otpService) {
+  public VerificationService(UserNameService userNameService,
+                             AuthenticationManager authenticationManager,
+                             RefreshTokenService refreshTokenService,
+                             UserService userService) {
     this.userNameService = userNameService;
     this.authenticationManager = authenticationManager;
-    this.otpService = otpService;
+    this.refreshTokenService = refreshTokenService;
+    this.userService = userService;
   }
 
-  public String check(User user) {
-    Authentication authentication = authenticationManager
-      .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
-
-    if (authentication.isAuthenticated()) {
-      UserDetails principal = (UserDetails) authentication.getPrincipal();
-      otpService.sendOTP(user.getUsername());
-      return userNameService.generateToken(principal);
-    } else {
-      return null;
+  public boolean checkCredentials(String email, String password) {
+    try {
+      Authentication authentication = authenticationManager
+              .authenticate(new UsernamePasswordAuthenticationToken(email, password));
+      return authentication.isAuthenticated();
+    }
+    catch (Exception e) {
+      return false;
     }
   }
-}
 
+  public TokenResponse generateTokens(User user) {
+    UserDetails userDetails = userService.loadUserByUsername(user.getEmail());
+    String accessToken = userNameService.generateToken(userDetails);
+
+    var refreshTokenEntity = refreshTokenService.createRefreshToken(user);
+    String refreshToken = refreshTokenEntity.getToken();
+
+    return new TokenResponse(accessToken, refreshToken);
+  }
+}
