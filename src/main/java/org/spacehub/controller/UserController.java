@@ -56,7 +56,8 @@ public class UserController {
     if (!otpService.canSendOTP(email, OtpType.LOGIN)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-              "Please wait " + secondsLeft + " seconds before trying to login again.", null));
+              "Please wait " + secondsLeft + " seconds before trying to login again.",
+        null));
     }
 
     User user;
@@ -64,15 +65,18 @@ public class UserController {
       user = userService.getUserByEmail(email);
     }
     catch (Exception e) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "User not found", null));
     }
 
     if (!verificationService.checkCredentials(user.getEmail(), request.getPassword())) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid credentials", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid credentials", null));
     }
 
     otpService.sendOTP(email, OtpType.LOGIN);
-    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent for login verification", null));
+    return ResponseEntity.ok(new ApiResponse<>(200,
+      "OTP sent for login verification", null));
   }
 
   @PostMapping("/registration")
@@ -86,7 +90,8 @@ public class UserController {
     if (!otpService.canSendOTP(email, OtpType.REGISTRATION)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.REGISTRATION);
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-              "Please wait " + secondsLeft + " seconds before registering again.", null));
+              "Please wait " + secondsLeft +
+                " seconds before registering again.", null));
     }
 
     request.setEmail(email);
@@ -96,7 +101,8 @@ public class UserController {
       userService.save(user);
 
       otpService.sendOTP(email, OtpType.REGISTRATION);
-      return ResponseEntity.status(201).body(new ApiResponse<>(201, "OTP sent. Complete registration by validating OTP.", null));
+      return ResponseEntity.status(201).body(new ApiResponse<>(201,
+        "OTP sent. Complete registration by validating OTP.", null));
     }
     catch (IllegalStateException e) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400, e.getMessage(),
@@ -116,7 +122,8 @@ public class UserController {
 
     if (email == null || !emailValidator.test(email) || type == null) {
       return ResponseEntity.badRequest()
-              .body(new ApiResponse<>(400, "Invalid email or missing OTP type", null));
+              .body(new ApiResponse<>(400, "Invalid email or missing OTP type",
+                null));
     }
 
     if (!otpService.canSendOTP(email, type)) {
@@ -136,30 +143,35 @@ public class UserController {
     OtpType type = request.getType();
     boolean valid = otpService.validateOTP(request.getEmail(), request.getOtp(), type);
     if (!valid) {
-      return ResponseEntity.status(400).body(new ApiResponse<>(400, "OTP is invalid or expired", null));
+      return ResponseEntity.status(400).body(new ApiResponse<>(400,
+        "OTP is invalid or expired", null));
     }
 
     User user;
     try {
       user = userService.getUserByEmail(request.getEmail());
     } catch (Exception e) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found",
+        null));
     }
     if (type == OtpType.REGISTRATION) {
       user.setIsVerifiedRegistration(true);
       userService.save(user);
-      return ResponseEntity.ok(new ApiResponse<>(200, "Registration verified successfully", null));
+      return ResponseEntity.ok(new ApiResponse<>(200,
+        "Registration verified successfully", null));
     }
     else if (type == OtpType.LOGIN) {
       user.setIsVerifiedLogin(true);
       userService.save(user);
       TokenResponse tokens = verificationService.generateTokens(user);
-      return ResponseEntity.ok(new ApiResponse<>(200, "Login verified successfully", tokens));
+      return ResponseEntity.ok(new ApiResponse<>(200,
+        "Login verified successfully", tokens));
     }
     else if (type == OtpType.FORGOT_PASSWORD) {
       user.setIsVerifiedForgot(true);
       userService.save(user);
-      return ResponseEntity.ok(new ApiResponse<>(200, "OTP verified. You can reset your password now.", null));
+      return ResponseEntity.ok(new ApiResponse<>(200,
+        "OTP verified. You can reset your password now.", null));
     }
 
     return ResponseEntity.ok(new ApiResponse<>(200, "OTP verified", null));
@@ -169,24 +181,27 @@ public class UserController {
   public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody EmailRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (!emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "Invalid email format!", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "Invalid email format!", null));
     }
-
     User user;
     try {
       user = userService.getUserByEmail(email);
     } catch (Exception e) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "User not found", null));
     }
 
     if (!otpService.canSendOTP(email, OtpType.FORGOT_PASSWORD)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.FORGOT_PASSWORD);
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-              "Please wait " + secondsLeft + " seconds before requesting OTP again.", null));
+              "Please wait " + secondsLeft + " seconds before requesting OTP again.",
+        null));
     }
 
     otpService.sendOTP(email, OtpType.FORGOT_PASSWORD);
-    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email", null));
+    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email",
+      null));
   }
 
   @PostMapping("/resetpassword")

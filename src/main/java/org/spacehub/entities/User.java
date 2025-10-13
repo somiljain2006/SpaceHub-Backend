@@ -77,12 +77,12 @@ public class User implements UserDetails {
     return email;
   }
 
-    @Override
+  @Override
   public boolean isAccountNonLocked() {
     return !locked;
   }
 
-    @Override
+  @Override
   public boolean isEnabled() {
     return enabled;
   }

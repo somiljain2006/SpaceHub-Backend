@@ -1,7 +1,6 @@
 package org.spacehub.service;
 
 import jakarta.transaction.Transactional;
-import org.spacehub.entities.OtpType;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.User;
 import org.spacehub.entities.UserRole;
@@ -18,8 +17,7 @@ public class RegistrationService {
   private final UserRepository userRepository;
 
   public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator,
-                             UserRepository userRepository,
-                             OTPService otpService) {
+                             UserRepository userRepository) {
     this.passwordEncoder = passwordEncoder;
     this.emailValidator = emailValidator;
     this.userRepository = userRepository;
