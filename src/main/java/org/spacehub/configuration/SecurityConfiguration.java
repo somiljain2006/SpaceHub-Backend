@@ -34,7 +34,7 @@ public class SecurityConfiguration {
     config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8000"));
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
     config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin",
-      "X-Requested-With"));
+            "X-Requested-With"));
     config.setExposedHeaders(List.of("Authorization"));
     config.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -45,26 +45,27 @@ public class SecurityConfiguration {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
-      .cors(withDefaults())
-      .csrf(AbstractHttpConfigurer::disable)
-      .authorizeHttpRequests(auth -> auth
-        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-        .requestMatchers("/api/v1/**").permitAll()
-        .anyRequest().authenticated()
-      )
-      .httpBasic(AbstractHttpConfigurer::disable)
-      .sessionManagement(
-        session ->
-          session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-      .authenticationProvider(authenticationProvider)
-      .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
+            .cors(withDefaults())
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers("/api/v1/**").permitAll()
+                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+                    .anyRequest().authenticated()
+            )
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .sessionManagement(
+                    session ->
+                            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
 
   @Bean
   public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig)
-    throws Exception {
+          throws Exception {
     return authConfig.getAuthenticationManager();
   }
 }

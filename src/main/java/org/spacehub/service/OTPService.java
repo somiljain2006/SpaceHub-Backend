@@ -52,7 +52,7 @@ public class OTPService {
   }
 
   public boolean validateOTP(String email, String otpCode, OtpType type) {
-    Optional<OTP> otpOptional = otpRepository.findByEmailAndCodeAndTypeAndUsedFalse(email, otpCode, type);
+    Optional<OTP> otpOptional = otpRepository.findByEmailAndCodeAndType(email, otpCode, type);
     boolean valid = otpOptional.map(otp -> Instant.now().isBefore(otp.getExpiresAt())).orElse(false);
 
     if (valid) {
@@ -65,13 +65,13 @@ public class OTPService {
   }
 
   public boolean canSendOTP(String email, OtpType type) {
-    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc(email, type);
+    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndType(email, type);
     return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds() >= COOLDOWN_SECONDS)
             .orElse(true);
   }
 
   public long cooldownTime(String email, OtpType type) {
-    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc(email, type);
+    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndType(email, type);
     return lastOtp.map(otp -> {
       long elapsed = Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds();
       return Math.max(0, COOLDOWN_SECONDS - elapsed);

@@ -1,11 +1,13 @@
 package org.spacehub.controller;
 
+import jakarta.validation.Valid;
 import org.spacehub.DTO.*;
 import org.spacehub.entities.ApiResponse;
 import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.OtpType;
 import org.spacehub.security.EmailValidator;
+import org.spacehub.security.PasswordValidator;
 import org.spacehub.service.OTPService;
 import org.spacehub.service.RefreshTokenService;
 import org.spacehub.service.UserNameService;
@@ -14,10 +16,7 @@ import org.spacehub.service.VerificationService;
 import org.spacehub.service.RegistrationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping(path = "api/v1")
@@ -30,12 +29,16 @@ public class UserController {
   private final UserService userService;
   private final UserNameService userNameService;
   private final RefreshTokenService refreshTokenService;
+  private final PasswordValidator passwordValidator;
 
   public UserController(VerificationService verificationService,
-                        RegistrationService registrationService, EmailValidator emailValidator,
-                        OTPService otpService, UserService userService,
+                        RegistrationService registrationService,
+                        EmailValidator emailValidator,
+                        OTPService otpService,
+                        UserService userService,
                         UserNameService userNameService,
-                        RefreshTokenService refreshTokenService) {
+                        RefreshTokenService refreshTokenService,
+                        PasswordValidator passwordValidator) {
     this.verificationService = verificationService;
     this.registrationService = registrationService;
     this.emailValidator = emailValidator;
@@ -43,7 +46,9 @@ public class UserController {
     this.userService = userService;
     this.userNameService = userNameService;
     this.refreshTokenService = refreshTokenService;
+    this.passwordValidator = passwordValidator;
   }
+
 
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<TokenResponse>> login(@RequestBody LoginRequest request) {
@@ -51,6 +56,11 @@ public class UserController {
     if (!emailValidator.test(email)) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
         "Invalid email format!", null));
+    }
+
+    String passwordCheck = passwordValidator.getValidationMessage(request.getPassword());
+    if (!passwordCheck.equals("Valid")) {
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
     }
 
     if (!otpService.canSendOTP(email, OtpType.LOGIN)) {
@@ -80,11 +90,16 @@ public class UserController {
   }
 
   @PostMapping("/registration")
-  public ResponseEntity<ApiResponse<String>> register(@RequestBody RegistrationRequest request) {
+  public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     if (!emailValidator.test(email)) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
         "Invalid email format!", null));
+    }
+
+    String passwordCheck = PasswordValidator.getValidationMessage(request.getPassword());
+    if (!passwordCheck.equals("Valid")) {
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
     }
 
     if (!otpService.canSendOTP(email, OtpType.REGISTRATION)) {
@@ -177,37 +192,43 @@ public class UserController {
     return ResponseEntity.ok(new ApiResponse<>(200, "OTP verified", null));
   }
 
-  @PostMapping("/forgotpassword")
-  public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody EmailRequest request) {
-    String email = emailValidator.normalize(request.getEmail());
-    if (!emailValidator.test(email)) {
+  @GetMapping("/forgotpassword")
+  public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
+    String normalizedEmail = emailValidator.normalize(email);
+    if (!emailValidator.test(normalizedEmail)) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-        "Invalid email format!", null));
+              "Invalid email format!", null));
     }
+
     User user;
     try {
-      user = userService.getUserByEmail(email);
+      user = userService.getUserByEmail(normalizedEmail);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-        "User not found", null));
+              "User not found", null));
     }
 
-    if (!otpService.canSendOTP(email, OtpType.FORGOT_PASSWORD)) {
-      long secondsLeft = otpService.cooldownTime(email, OtpType.FORGOT_PASSWORD);
+    if (!otpService.canSendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
+      long secondsLeft = otpService.cooldownTime(normalizedEmail, OtpType.FORGOT_PASSWORD);
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
               "Please wait " + secondsLeft + " seconds before requesting OTP again.",
-        null));
+              null));
     }
 
-    otpService.sendOTP(email, OtpType.FORGOT_PASSWORD);
-    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email",
-      null));
+    otpService.sendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD);
+    return ResponseEntity.ok(new ApiResponse<>(200, "OTP sent to your email", null));
   }
+
 
   @PostMapping("/resetpassword")
   public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody ResetPasswordRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     String newPassword = request.getNewPassword();
+
+    String passwordCheck = PasswordValidator.getValidationMessage(newPassword);
+    if (!passwordCheck.equals("Valid")) {
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
+    }
 
     User user;
     try {
