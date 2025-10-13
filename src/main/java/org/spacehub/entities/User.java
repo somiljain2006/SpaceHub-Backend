@@ -45,6 +45,9 @@ public class User implements UserDetails {
   private UserRole userRole;
   private Boolean locked = false;
   private Boolean enabled = false;
+  private Boolean isVerifiedRegistration = false;
+  private Boolean isVerifiedLogin = false;
+  private Boolean isVerifiedForgot = false;
 
   public User(String firstName,
                  String lastName,
@@ -60,8 +63,7 @@ public class User implements UserDetails {
 
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    SimpleGrantedAuthority authority =
-      new SimpleGrantedAuthority(userRole.name());
+    SimpleGrantedAuthority authority = new SimpleGrantedAuthority(userRole.name());
     return Collections.singletonList(authority);
   }
 
@@ -75,22 +77,12 @@ public class User implements UserDetails {
     return email;
   }
 
-  @Override
-  public boolean isAccountNonExpired() {
-    return true;
-  }
-
-  @Override
+    @Override
   public boolean isAccountNonLocked() {
     return !locked;
   }
 
-  @Override
-  public boolean isCredentialsNonExpired() {
-    return true;
-  }
-
-  @Override
+    @Override
   public boolean isEnabled() {
     return enabled;
   }

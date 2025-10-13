@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 public class UserService implements UserDetailsService {
 
   @Autowired
-  PasswordEncoder passwordEncoder;
+  private PasswordEncoder passwordEncoder;
 
   private final UserRepository userRepository;
 
@@ -24,13 +24,16 @@ public class UserService implements UserDetailsService {
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
     return userRepository.findByEmail(email)
-      .orElseThrow(() ->
-        new UsernameNotFoundException(String.format("User with email %s has not been found", email))
-      );
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
   }
 
-  public boolean checkUser(String email) {
-    return userRepository.findByEmail(email).isPresent();
+  public User getUserByEmail(String email) {
+    return userRepository.findByEmail(email)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+  }
+
+  public void save(User user) {
+    userRepository.save(user);
   }
 
   public void updatePassword(String email, String newPassword) {
@@ -39,5 +42,4 @@ public class UserService implements UserDetailsService {
     user.setPassword(passwordEncoder.encode(newPassword));
     userRepository.save(user);
   }
-
 }

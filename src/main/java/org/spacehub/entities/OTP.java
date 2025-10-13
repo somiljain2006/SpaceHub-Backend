@@ -28,4 +28,11 @@ public class OTP {
   @Column(nullable = false)
   private Instant expiresAt;
 
+  @Column(nullable = false)
+  @Enumerated(EnumType.STRING)
+  private OtpType type;
+
+  @Column(nullable = false)
+  private boolean used = false;
+
 }

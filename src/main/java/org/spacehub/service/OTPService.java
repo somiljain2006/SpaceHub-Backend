@@ -1,8 +1,8 @@
 package org.spacehub.service;
 
 import org.spacehub.entities.OTP;
+import org.spacehub.entities.OtpType;
 import org.spacehub.repository.OTPRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -17,19 +17,17 @@ public class OTPService {
 
   private final JavaMailSender mailSender;
   private final OTPRepository otpRepository;
-  private static final int expirySeconds = 300;
-  private static final int cooldownSeconds = 60;
+  private static final int EXPIRY_SECONDS = 300;
+  private static final int COOLDOWN_SECONDS = 30;
 
   public OTPService(JavaMailSender mailSender, OTPRepository otpRepository) {
     this.mailSender = mailSender;
     this.otpRepository = otpRepository;
   }
 
-  public void sendOTP(String email) {
+  public void sendOTP(String email, OtpType type) {
     String DEFAULT_EMAIL = "monuchaudharypoonia@gmail.com";
-    if (email == null || email.isEmpty()) {
-      email = DEFAULT_EMAIL;
-    }
+
     int num = new Random().nextInt(1000000);
     String otpCode = String.format("%06d", num);
     Instant now = Instant.now();
@@ -38,7 +36,9 @@ public class OTPService {
     otp.setEmail(email);
     otp.setCode(otpCode);
     otp.setCreatedAt(now);
-    otp.setExpiresAt(now.plusSeconds(expirySeconds));
+    otp.setExpiresAt(now.plusSeconds(EXPIRY_SECONDS));
+    otp.setType(type);
+    otp.setUsed(false);
 
     otpRepository.save(otp);
 
@@ -51,23 +51,30 @@ public class OTPService {
     mailSender.send(message);
   }
 
-  public boolean validateOTP(String email, String otpCode) {
-    Optional<OTP> otpOptional = otpRepository.findByEmailAndCode(email, otpCode);
-    return otpOptional.map(otp -> Instant.now().isBefore(otp.getExpiresAt())).orElse(false);
+  public boolean validateOTP(String email, String otpCode, OtpType type) {
+    Optional<OTP> otpOptional = otpRepository.findByEmailAndCodeAndTypeAndUsedFalse(email, otpCode, type);
+    boolean valid = otpOptional.map(otp -> Instant.now().isBefore(otp.getExpiresAt())).orElse(false);
+
+    if (valid) {
+      otpOptional.ifPresent(otp -> {
+        otp.setUsed(true);
+        otpRepository.save(otp);
+      });
+    }
+    return valid;
   }
 
-  public boolean canSendOTP(String email) {
-    Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
-    return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(),
-        Instant.now()).getSeconds() >= cooldownSeconds)
+  public boolean canSendOTP(String email, OtpType type) {
+    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc(email, type);
+    return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds() >= COOLDOWN_SECONDS)
             .orElse(true);
   }
 
-  public long cooldownTime(String email) {
-    Optional<OTP> lastOtp = otpRepository.findTopByEmail(email);
+  public long cooldownTime(String email, OtpType type) {
+    Optional<OTP> lastOtp = otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc(email, type);
     return lastOtp.map(otp -> {
       long elapsed = Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds();
-      return Math.max(0, cooldownSeconds - elapsed);
+      return Math.max(0, COOLDOWN_SECONDS - elapsed);
     }).orElse(0L);
   }
 

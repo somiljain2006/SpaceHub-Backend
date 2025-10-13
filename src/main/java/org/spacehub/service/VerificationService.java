@@ -13,35 +13,36 @@ public class VerificationService {
 
   private final UserNameService userNameService;
   private final AuthenticationManager authenticationManager;
-  private final OTPService otpService;
   private final RefreshTokenService refreshTokenService;
   private final UserService userService;
 
   public VerificationService(UserNameService userNameService,
                              AuthenticationManager authenticationManager,
-                             OTPService otpService, RefreshTokenService refreshTokenService,
+                             RefreshTokenService refreshTokenService,
                              UserService userService) {
     this.userNameService = userNameService;
     this.authenticationManager = authenticationManager;
-    this.otpService = otpService;
     this.refreshTokenService = refreshTokenService;
     this.userService = userService;
   }
 
-  public TokenResponse authenticateAndIssueTokens(User user) {
-    Authentication authentication = authenticationManager
-      .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
-
-    if (!authentication.isAuthenticated()) {
-      return null;
+  public boolean checkCredentials(String email, String password) {
+    try {
+      Authentication authentication = authenticationManager
+              .authenticate(new UsernamePasswordAuthenticationToken(email, password));
+      return authentication.isAuthenticated();
     }
+    catch (Exception e) {
+      return false;
+    }
+  }
 
-    UserDetails principal = (UserDetails) authentication.getPrincipal();
-    String accessToken = userNameService.generateToken(principal);
-    User fullUser = (User) userService.loadUserByUsername(principal.getUsername());
-    var refreshTokenEntity = refreshTokenService.createRefreshToken(fullUser);
+  public TokenResponse generateTokens(User user) {
+    UserDetails userDetails = userService.loadUserByUsername(user.getEmail());
+    String accessToken = userNameService.generateToken(userDetails);
+
+    var refreshTokenEntity = refreshTokenService.createRefreshToken(user);
     String refreshToken = refreshTokenEntity.getToken();
-    otpService.sendOTP(user.getUsername());
 
     return new TokenResponse(accessToken, refreshToken);
   }
