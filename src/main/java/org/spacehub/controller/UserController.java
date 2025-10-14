@@ -7,15 +7,12 @@ import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.OtpType;
 import org.spacehub.security.EmailValidator;
-import org.spacehub.security.PasswordValidator;
 import org.spacehub.service.OTPService;
 import org.spacehub.service.RefreshTokenService;
-import org.spacehub.service.UserNameService;
 import org.spacehub.service.UserService;
 import org.spacehub.service.VerificationService;
 import org.spacehub.service.RegistrationService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,7 +24,6 @@ public class UserController {
   private final EmailValidator emailValidator;
   private final OTPService otpService;
   private final UserService userService;
-  private final UserNameService userNameService;
   private final RefreshTokenService refreshTokenService;
 
   public UserController(VerificationService verificationService,
@@ -35,14 +31,12 @@ public class UserController {
                         EmailValidator emailValidator,
                         OTPService otpService,
                         UserService userService,
-                        UserNameService userNameService,
                         RefreshTokenService refreshTokenService) {
     this.verificationService = verificationService;
     this.registrationService = registrationService;
     this.emailValidator = emailValidator;
     this.otpService = otpService;
     this.userService = userService;
-    this.userNameService = userNameService;
     this.refreshTokenService = refreshTokenService;
   }
 
@@ -50,15 +44,6 @@ public class UserController {
   @PostMapping("/login")
   public ResponseEntity<ApiResponse<TokenResponse>> login(@RequestBody LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
-    if (!emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-        "Invalid email format!", null));
-    }
-
-    String passwordCheck = PasswordValidator.getValidationMessage(request.getPassword());
-    if (!passwordCheck.equals("Valid")) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
-    }
 
     if (!otpService.canSendOTP(email, OtpType.LOGIN)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
@@ -70,8 +55,8 @@ public class UserController {
     User user;
     try {
       user = userService.getUserByEmail(email);
-      if(!user.getIsVerifiedRegistration()){
-          return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+      if (!user.getIsVerifiedRegistration()){
+        return ResponseEntity.badRequest().body(new ApiResponse<>(400,
                   "Register first", null));
       }
     }
@@ -93,15 +78,6 @@ public class UserController {
   @PostMapping("/registration")
   public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
-    if (!emailValidator.test(email)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-        "Invalid email format!", null));
-    }
-
-    String passwordCheck = PasswordValidator.getValidationMessage(request.getPassword());
-    if (!passwordCheck.equals("Valid")) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
-    }
 
     if (!otpService.canSendOTP(email, OtpType.REGISTRATION)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.REGISTRATION);
@@ -173,10 +149,6 @@ public class UserController {
   @GetMapping("/forgotpassword")
   public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
     String normalizedEmail = emailValidator.normalize(email);
-    if (!emailValidator.test(normalizedEmail)) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-              "Invalid email format!", null));
-    }
 
     try {
       userService.getUserByEmail(normalizedEmail);
@@ -201,11 +173,6 @@ public class UserController {
   public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody ResetPasswordRequest request) {
     String email = emailValidator.normalize(request.getEmail());
     String newPassword = request.getNewPassword();
-
-    String passwordCheck = PasswordValidator.getValidationMessage(newPassword);
-    if (!passwordCheck.equals("Valid")) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
-    }
 
     User user;
     try {
@@ -262,23 +229,21 @@ public class UserController {
 //  }
 
 
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(@RequestBody(required = false) RefreshRequest request) {
-        if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(new ApiResponse<>(400, "Refresh token is required", null));
-        }
-
-        String refreshToken = request.getRefreshToken();
-        boolean deleted = refreshTokenService.deleteIfExists(refreshToken);
-
-        if (!deleted) {
-            return ResponseEntity.status(404)
-                    .body(new ApiResponse<>(404, "Refresh token not found", null));
-        }
-
-        return ResponseEntity.ok(new ApiResponse<>(200, "Logout successful", null));
+  @PostMapping("/logout")
+  public ResponseEntity<ApiResponse<String>> logout(@RequestBody(required = false) RefreshRequest request) {
+    if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+      return ResponseEntity.badRequest()
+                .body(new ApiResponse<>(400, "Refresh token is required", null));
     }
 
+    String refreshToken = request.getRefreshToken();
+    boolean deleted = refreshTokenService.deleteIfExists(refreshToken);
 
+    if (!deleted) {
+      return ResponseEntity.status(404)
+                .body(new ApiResponse<>(404, "Refresh token not found", null));
+    }
+
+    return ResponseEntity.ok(new ApiResponse<>(200, "Logout successful", null));
+  }
 }

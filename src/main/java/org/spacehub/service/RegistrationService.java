@@ -26,10 +26,6 @@ public class RegistrationService {
   @Transactional
   public User register(RegistrationRequest request) {
     String email = request.getEmail();
-    if (!emailValidator.test(email)) {
-      throw new IllegalStateException("Invalid email address");
-    }
-
     if (userRepository.findByEmail(email).isPresent()) {
       throw new IllegalStateException("Email already taken");
     }

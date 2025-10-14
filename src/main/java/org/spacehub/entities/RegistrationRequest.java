@@ -29,5 +29,10 @@ public class RegistrationRequest {
   private String email;
 
   @NotBlank(message = "Password is required")
+  @Pattern(
+    regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@#$%^&+=!])(?!.*\\s).+$",
+    message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, " +
+      "one special character, and no spaces"
+  )
   private String password;
 }
