@@ -13,4 +13,5 @@ public interface OTPRepository extends JpaRepository<OTP, Long> {
   Optional<OTP> findTopByEmailAndType(String email, OtpType type);
 
   Optional<OTP> findByEmailAndCodeAndType(String email, String code, OtpType type);
+
 }

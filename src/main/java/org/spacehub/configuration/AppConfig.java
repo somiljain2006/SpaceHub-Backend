@@ -24,6 +24,7 @@ public class AppConfig {
   public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService,
                                                        PasswordEncoder passwordEncoder) {
     return new AuthenticationProvider() {
+
       @Override
       public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         String username = authentication.getName();

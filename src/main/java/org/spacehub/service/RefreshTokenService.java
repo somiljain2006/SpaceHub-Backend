@@ -6,7 +6,6 @@ import org.spacehub.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 
 @Service
 public class RefreshTokenService {
@@ -23,18 +22,6 @@ public class RefreshTokenService {
     Instant expiresAt = now.plus(refreshTokenDay, ChronoUnit.DAYS);
     RefreshToken refreshToken = new RefreshToken(user, now, expiresAt);
     return refreshTokenRepository.save(refreshToken);
-  }
-
-  public Optional<RefreshToken> findByToken(String token) {
-    return refreshTokenRepository.findByToken(token);
-  }
-
-  public void deleteByToken(String token) {
-    refreshTokenRepository.deleteByToken(token);
-  }
-
-  public boolean isExpired(RefreshToken token) {
-    return token.getExpiresAt().isBefore(Instant.now());
   }
 
   public boolean deleteIfExists(String token) {

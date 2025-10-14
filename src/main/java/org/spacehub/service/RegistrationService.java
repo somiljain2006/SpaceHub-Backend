@@ -5,7 +5,6 @@ import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.User;
 import org.spacehub.entities.UserRole;
 import org.spacehub.repository.UserRepository;
-import org.spacehub.security.EmailValidator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -13,13 +12,11 @@ import org.springframework.stereotype.Service;
 public class RegistrationService {
 
   private final PasswordEncoder passwordEncoder;
-  private final EmailValidator emailValidator;
   private final UserRepository userRepository;
 
-  public RegistrationService(PasswordEncoder passwordEncoder, EmailValidator emailValidator,
+  public RegistrationService(PasswordEncoder passwordEncoder,
                              UserRepository userRepository) {
     this.passwordEncoder = passwordEncoder;
-    this.emailValidator = emailValidator;
     this.userRepository = userRepository;
   }
 
