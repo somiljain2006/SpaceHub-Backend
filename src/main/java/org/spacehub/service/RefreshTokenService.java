@@ -36,4 +36,14 @@ public class RefreshTokenService {
   public boolean isExpired(RefreshToken token) {
     return token.getExpiresAt().isBefore(Instant.now());
   }
+
+  public boolean deleteIfExists(String token) {
+    var opt = refreshTokenRepository.findByToken(token);
+    if (opt.isPresent()) {
+      refreshTokenRepository.delete(opt.get());
+      return true;
+    }
+    return false;
+  }
+
 }

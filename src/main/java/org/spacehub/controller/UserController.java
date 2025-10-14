@@ -70,6 +70,10 @@ public class UserController {
     User user;
     try {
       user = userService.getUserByEmail(email);
+      if(!user.getIsVerifiedRegistration()){
+          return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+                  "Register first", null));
+      }
     }
     catch (Exception e) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
@@ -225,35 +229,56 @@ public class UserController {
   }
 
 
-  @PostMapping("/token/refresh")
-  public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
-    @RequestBody RefreshRequest request) {
-    String incomingToken = request.getRefreshToken();
-    if (incomingToken == null || incomingToken.isBlank()) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
-        "Missing refresh token", null));
+//  @PostMapping("/token/refresh")
+//  public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+//    @RequestBody RefreshRequest request) {
+//    String incomingToken = request.getRefreshToken();
+//    if (incomingToken == null || incomingToken.isBlank()) {
+//      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+//        "Missing refresh token", null));
+//    }
+//    var opt = refreshTokenService.findByToken(incomingToken);
+//    if (opt.isEmpty()) {
+//      return ResponseEntity.status(401).body(new ApiResponse<>(401,
+//        "Invalid refresh token", null));
+//    }
+//
+//    var refreshToken = opt.get();
+//    if (refreshTokenService.isExpired(refreshToken)) {
+//      refreshTokenService.deleteByToken(incomingToken);
+//      return ResponseEntity.status(401).body(new ApiResponse<>(401,
+//        "Refresh token expired", null));
+//    }
+//
+//    User user = refreshToken.getUser();
+//    refreshTokenService.deleteByToken(incomingToken);
+//    var newRefresh = refreshTokenService.createRefreshToken(user);
+//
+//    UserDetails userDetails = userService.loadUserByUsername(user.getEmail());
+//    String newAccessToken = userNameService.generateToken(userDetails);
+//
+//    TokenResponse tokens = new TokenResponse(newAccessToken, newRefresh.getToken());
+//    return ResponseEntity.ok(new ApiResponse<>(200, "Token refreshed", tokens));
+//  }
+
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(@RequestBody(required = false) RefreshRequest request) {
+        if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(400, "Refresh token is required", null));
+        }
+
+        String refreshToken = request.getRefreshToken();
+        boolean deleted = refreshTokenService.deleteIfExists(refreshToken);
+
+        if (!deleted) {
+            return ResponseEntity.status(404)
+                    .body(new ApiResponse<>(404, "Refresh token not found", null));
+        }
+
+        return ResponseEntity.ok(new ApiResponse<>(200, "Logout successful", null));
     }
-    var opt = refreshTokenService.findByToken(incomingToken);
-    if (opt.isEmpty()) {
-      return ResponseEntity.status(401).body(new ApiResponse<>(401,
-        "Invalid refresh token", null));
-    }
 
-    var refreshToken = opt.get();
-    if (refreshTokenService.isExpired(refreshToken)) {
-      refreshTokenService.deleteByToken(incomingToken);
-      return ResponseEntity.status(401).body(new ApiResponse<>(401,
-        "Refresh token expired", null));
-    }
 
-    User user = refreshToken.getUser();
-    refreshTokenService.deleteByToken(incomingToken);
-    var newRefresh = refreshTokenService.createRefreshToken(user);
-
-    UserDetails userDetails = userService.loadUserByUsername(user.getEmail());
-    String newAccessToken = userNameService.generateToken(userDetails);
-
-    TokenResponse tokens = new TokenResponse(newAccessToken, newRefresh.getToken());
-    return ResponseEntity.ok(new ApiResponse<>(200, "Token refreshed", tokens));
-  }
 }
