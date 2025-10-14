@@ -29,7 +29,6 @@ public class UserController {
   private final UserService userService;
   private final UserNameService userNameService;
   private final RefreshTokenService refreshTokenService;
-  private final PasswordValidator passwordValidator;
 
   public UserController(VerificationService verificationService,
                         RegistrationService registrationService,
@@ -37,8 +36,7 @@ public class UserController {
                         OTPService otpService,
                         UserService userService,
                         UserNameService userNameService,
-                        RefreshTokenService refreshTokenService,
-                        PasswordValidator passwordValidator) {
+                        RefreshTokenService refreshTokenService) {
     this.verificationService = verificationService;
     this.registrationService = registrationService;
     this.emailValidator = emailValidator;
@@ -46,7 +44,6 @@ public class UserController {
     this.userService = userService;
     this.userNameService = userNameService;
     this.refreshTokenService = refreshTokenService;
-    this.passwordValidator = passwordValidator;
   }
 
 
@@ -58,7 +55,7 @@ public class UserController {
         "Invalid email format!", null));
     }
 
-    String passwordCheck = passwordValidator.getValidationMessage(request.getPassword());
+    String passwordCheck = PasswordValidator.getValidationMessage(request.getPassword());
     if (!passwordCheck.equals("Valid")) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400, passwordCheck, null));
     }
@@ -145,7 +142,8 @@ public class UserController {
       long secondsLeft = otpService.cooldownTime(email, type);
       return ResponseEntity.badRequest()
               .body(new ApiResponse<>(400,
-                      "Please wait " + secondsLeft + " seconds before requesting OTP again.", null));
+                      "Please wait " + secondsLeft + " seconds before requesting OTP again.",
+                null));
     }
 
     otpService.sendOTP(email, type);
@@ -200,9 +198,8 @@ public class UserController {
               "Invalid email format!", null));
     }
 
-    User user;
     try {
-      user = userService.getUserByEmail(normalizedEmail);
+      userService.getUserByEmail(normalizedEmail);
     } catch (Exception e) {
       return ResponseEntity.badRequest().body(new ApiResponse<>(400,
               "User not found", null));
@@ -234,18 +231,21 @@ public class UserController {
     try {
       user = userService.getUserByEmail(email);
     } catch (Exception e) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "User not found",
+        null));
     }
 
     if (!user.getIsVerifiedForgot()) {
-      return ResponseEntity.badRequest().body(new ApiResponse<>(400, "OTP not verified for password reset", null));
+      return ResponseEntity.badRequest().body(new ApiResponse<>(400,
+        "OTP not verified for password reset", null));
     }
 
     userService.updatePassword(email, newPassword);
     user.setIsVerifiedForgot(false);
     userService.save(user);
 
-    return ResponseEntity.ok(new ApiResponse<>(200, "Password has been reset successfully", null));
+    return ResponseEntity.ok(new ApiResponse<>(200, "Password has been reset successfully",
+      null));
   }
 
 
