@@ -35,7 +35,7 @@ public class UserAccountService {
   public ApiResponse<TokenResponse> login(LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
-    if (!otpService.canSendOTP(email, OtpType.LOGIN)) {
+    if (otpService.isInCooldown(email, OtpType.LOGIN)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
       return new ApiResponse<>(400,
         "Please wait " + secondsLeft + " seconds before trying to login again.",
@@ -63,7 +63,7 @@ public class UserAccountService {
   public ApiResponse<String> register(RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
-    if (!otpService.canSendOTP(email, OtpType.REGISTRATION)) {
+    if (otpService.isInCooldown(email, OtpType.REGISTRATION)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.REGISTRATION);
       return new ApiResponse<>(400,
         "Please wait " + secondsLeft + " seconds before registering again.", null);
@@ -126,7 +126,7 @@ public class UserAccountService {
       return new ApiResponse<>(400, "User not found", null);
     }
 
-    if (!otpService.canSendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
+    if (otpService.isInCooldown(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
       long secondsLeft = otpService.cooldownTime(normalizedEmail, OtpType.FORGOT_PASSWORD);
       return new ApiResponse<>(400,
         "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
