@@ -64,10 +64,13 @@ public class OTPService {
     return valid;
   }
 
-  public boolean canSendOTP(String email, OtpType type) {
+  public boolean isInCooldown(String email, OtpType type) {
     Optional<OTP> lastOtp = otpRepository.findTopByEmailAndType(email, type);
-    return lastOtp.map(otp -> Duration.between(otp.getCreatedAt(), Instant.now()).getSeconds() >= COOLDOWN_SECONDS)
-            .orElse(true);
+    if (lastOtp.isEmpty()) {
+      return false;
+    }
+    long elapsed = Duration.between(lastOtp.get().getCreatedAt(), Instant.now()).getSeconds();
+    return elapsed < COOLDOWN_SECONDS;
   }
 
   public long cooldownTime(String email, OtpType type) {
@@ -77,5 +80,4 @@ public class OTPService {
       return Math.max(0, COOLDOWN_SECONDS - elapsed);
     }).orElse(0L);
   }
-
 }
