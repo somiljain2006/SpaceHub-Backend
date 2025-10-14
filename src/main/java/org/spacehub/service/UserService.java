@@ -2,7 +2,6 @@ package org.spacehub.service;
 
 import org.spacehub.entities.User;
 import org.spacehub.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
