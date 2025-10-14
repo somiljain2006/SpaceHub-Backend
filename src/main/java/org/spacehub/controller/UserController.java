@@ -127,30 +127,6 @@ public class UserController {
     }
   }
 
-  @PostMapping("/sendotp")
-  public ResponseEntity<ApiResponse<String>> sendOTP(@RequestBody OTPRequest request) {
-    String email = emailValidator.normalize(request.getEmail());
-    OtpType type = request.getType();
-
-    if (email == null || !emailValidator.test(email) || type == null) {
-      return ResponseEntity.badRequest()
-              .body(new ApiResponse<>(400, "Invalid email or missing OTP type",
-                null));
-    }
-
-    if (!otpService.canSendOTP(email, type)) {
-      long secondsLeft = otpService.cooldownTime(email, type);
-      return ResponseEntity.badRequest()
-              .body(new ApiResponse<>(400,
-                      "Please wait " + secondsLeft + " seconds before requesting OTP again.",
-                null));
-    }
-
-    otpService.sendOTP(email, type);
-    return ResponseEntity.ok(new ApiResponse<>(200,
-            "OTP sent successfully to " + email + " for " + type, null));
-  }
-
   @PostMapping("/validateotp")
   public ResponseEntity<ApiResponse<?>> validateOTP(@RequestBody OTPRequest request) {
     OtpType type = request.getType();
