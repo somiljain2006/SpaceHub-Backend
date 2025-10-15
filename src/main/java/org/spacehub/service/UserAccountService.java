@@ -87,10 +87,6 @@ public class UserAccountService {
 
   public ApiResponse<?> validateOTP(OTPRequest request) {
     OtpType type = request.getType();
-    boolean valid = otpService.validateOTP(request.getEmail(), request.getOtp(), type);
-    if (!valid) {
-      return new ApiResponse<>(400, "OTP is invalid or expired", null);
-    }
 
     User user;
     try {
@@ -99,23 +95,48 @@ public class UserAccountService {
       return new ApiResponse<>(400, "User not found", null);
     }
 
-    if (type == OtpType.REGISTRATION) {
-      user.setIsVerifiedRegistration(true);
-      userService.save(user);
-      return new ApiResponse<>(200, "Registration verified successfully", null);
-    } else if (type == OtpType.LOGIN) {
-      user.setIsVerifiedLogin(true);
-      userService.save(user);
-      TokenResponse tokens = verificationService.generateTokens(user);
-      return new ApiResponse<>(200, "Login verified successfully", tokens);
-    } else if (type == OtpType.FORGOT_PASSWORD) {
-      user.setIsVerifiedForgot(true);
-      userService.save(user);
-      return new ApiResponse<>(200, "OTP verified. You can reset your password now.", null);
+    if (otpService.isUsed(request.getEmail(), type)) {
+      return new ApiResponse<>(400, "OTP has already been used", null);
     }
 
-    return new ApiResponse<>(200, "OTP verified", null);
+    boolean valid = otpService.validateOTP(request.getEmail(), request.getOtp(), type);
+    if (!valid) {
+      return new ApiResponse<>(400, "OTP is invalid or expired", null);
+    }
+
+    otpService.markAsUsed(request.getEmail(), request.getOtp(), type);
+
+    switch (type) {
+      case REGISTRATION:
+        if (user.getIsVerifiedRegistration()) {
+          return new ApiResponse<>(400, "User is already registered", null);
+        }
+        user.setIsVerifiedRegistration(true);
+        userService.save(user);
+        return new ApiResponse<>(200, "Registration verified successfully", null);
+
+      case LOGIN:
+        if (user.getIsVerifiedLogin()) {
+          return new ApiResponse<>(400, "User is already logged in", null);
+        }
+        user.setIsVerifiedLogin(true);
+        userService.save(user);
+        TokenResponse tokens = verificationService.generateTokens(user);
+        return new ApiResponse<>(200, "Login verified successfully", tokens);
+
+      case FORGOT_PASSWORD:
+        if (user.getIsVerifiedForgot()) {
+          return new ApiResponse<>(400, "Password reset already verified", null);
+        }
+        user.setIsVerifiedForgot(true);
+        userService.save(user);
+        return new ApiResponse<>(200, "OTP verified. You can reset your password now.", null);
+
+      default:
+        return new ApiResponse<>(200, "OTP verified", null);
+    }
   }
+
 
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
