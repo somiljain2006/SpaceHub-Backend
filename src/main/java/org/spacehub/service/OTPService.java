@@ -1,6 +1,8 @@
 package org.spacehub.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.spacehub.entities.OtpType;
+import org.spacehub.entities.RegistrationRequest;
 import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 
@@ -9,9 +11,11 @@ public class OTPService {
 
   private final RedisService redisService;
   private final EmailService emailService;
+  private final ObjectMapper objectMapper = new ObjectMapper();
   private static final SecureRandom random = new SecureRandom();
   private static final int OTP_EXPIRE_SECONDS = 300;
   private static final int COOLDOWN_SECONDS = 30;
+  private static final int TEMP_REGISTRATION_EXPIRE = 600;
 
   public OTPService(RedisService redisService, EmailService emailService) {
     this.redisService = redisService;
@@ -51,11 +55,46 @@ public class OTPService {
   }
 
   public boolean isInCooldown(String email, OtpType type) {
-    String key = "OTP_COOLDOWN_" + type + "_" + email;
-    return redisService.exists(key);
+    return cooldownTime(email, type) > 0;
   }
 
   public long cooldownTime(String email, OtpType type) {
-    return isInCooldown(email, type) ? COOLDOWN_SECONDS : 0;
+    String key = "OTP_COOLDOWN_" + type + "_" + email;
+    Long ttl = redisService.getLiveTime(key);
+
+    if (ttl == null || ttl <= 0) return 0;
+    return ttl;
   }
+
+  public void saveTempOtp(String email, RegistrationRequest request) {
+    try {
+      String convertedString = objectMapper.writeValueAsString(request);
+
+      String key = "REGISTRATION_TEMP_" + email;
+      redisService.saveValue(key, convertedString, TEMP_REGISTRATION_EXPIRE);
+    }
+    catch (Exception e) {
+      throw new RuntimeException("Failed to save temporary registration", e);
+    }
+  }
+
+  public RegistrationRequest getTempOtp(String email) {
+    try {
+      String key = "REGISTRATION_TEMP_" + email;
+      String convertedString = redisService.getValue(key);
+
+      if (convertedString == null) return null;
+
+      return objectMapper.readValue(convertedString, RegistrationRequest.class);
+    }
+    catch (Exception e) {
+      return null;
+    }
+  }
+
+  public void deleteTempOtp(String email) {
+    String key = "REGISTRATION_TEMP_" + email;
+    redisService.deleteValue(key);
+  }
+
 }
