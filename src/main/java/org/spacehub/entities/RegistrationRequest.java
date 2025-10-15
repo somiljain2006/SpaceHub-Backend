@@ -25,7 +25,7 @@ public class RegistrationRequest {
 
   @Email(message = "Invalid email format")
   @NotBlank(message = "Email is required")
-  @Size(max = 254, message = "Email must not exceed 254 characters")
+  @Size(max = 50, message = "Email must not exceed 50 characters")
   private String email;
 
   @NotBlank(message = "Password is required")
@@ -34,5 +34,6 @@ public class RegistrationRequest {
     message = "Password must contain at least one uppercase letter, one lowercase letter, one digit, " +
       "one special character, and no spaces"
   )
+  @Size(max = 8, message = "Password must not exceed 8 characters")
   private String password;
 }
