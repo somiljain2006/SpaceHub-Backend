@@ -68,6 +68,19 @@ public class OTPService {
     return valid;
   }
 
+  public void markAsUsed(String email, String otpCode, OtpType type) {
+    otpRepository.findByEmailAndCodeAndType(email, otpCode, type)
+            .ifPresent(otp -> {
+              otp.setUsed(true);
+              otpRepository.save(otp);
+            });
+  }
+
+  public boolean isUsed(String email, OtpType type) {
+    Optional<OTP> otpOptional = otpRepository.findTopByEmailAndType(email, type);
+    return otpOptional.map(OTP::isUsed).orElse(false);
+  }
+
   public boolean isInCooldown(String email, OtpType type) {
     Optional<OTP> lastOtp = otpRepository.findTopByEmailAndType(email, type);
     if (lastOtp.isEmpty()) {
