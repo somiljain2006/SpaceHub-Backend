@@ -3,6 +3,7 @@ package org.spacehub.service;
 import org.spacehub.entities.OTP;
 import org.spacehub.entities.OtpType;
 import org.spacehub.repository.OTPRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -17,16 +18,20 @@ public class OTPService {
 
   private final JavaMailSender mailSender;
   private final OTPRepository otpRepository;
+  private final String defaultEmail;
+
   private static final int EXPIRY_SECONDS = 300;
   private static final int COOLDOWN_SECONDS = 30;
 
-  public OTPService(JavaMailSender mailSender, OTPRepository otpRepository) {
+  public OTPService(JavaMailSender mailSender,
+                    OTPRepository otpRepository,
+                    @Value("${spring.mail.username}") String defaultEmail) {
     this.mailSender = mailSender;
     this.otpRepository = otpRepository;
+    this.defaultEmail = defaultEmail;
   }
 
   public void sendOTP(String email, OtpType type) {
-    String DEFAULT_EMAIL = "monuchaudharypoonia@gmail.com";
 
     int num = new Random().nextInt(1000000);
     String otpCode = String.format("%06d", num);
@@ -39,11 +44,10 @@ public class OTPService {
     otp.setExpiresAt(now.plusSeconds(EXPIRY_SECONDS));
     otp.setType(type);
     otp.setUsed(false);
-
     otpRepository.save(otp);
 
     SimpleMailMessage message = new SimpleMailMessage();
-    message.setFrom(DEFAULT_EMAIL);
+    message.setFrom(defaultEmail);
     message.setTo(email);
     message.setSubject("OTP Verification");
     message.setText("Your OTP is: " + otpCode);
