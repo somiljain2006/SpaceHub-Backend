@@ -35,19 +35,9 @@ public class UserAccountService {
   public ApiResponse<TokenResponse> login(LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
-    if (otpService.isInCooldown(email, OtpType.LOGIN)) {
-      long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
-      return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before trying to login again.",
-        null);
-    }
-
     User user;
     try {
       user = userService.getUserByEmail(email);
-      if (!user.getIsVerifiedRegistration()) {
-        return new ApiResponse<>(400, "Register first", null);
-      }
     } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
@@ -55,9 +45,10 @@ public class UserAccountService {
     if (!verificationService.checkCredentials(user.getEmail(), request.getPassword())) {
       return new ApiResponse<>(400, "Invalid credentials", null);
     }
-
-    otpService.sendOTP(email, OtpType.LOGIN);
-    return new ApiResponse<>(200, "OTP sent for login verification", null);
+    user.setIsVerifiedLogin(true);
+    userService.save(user);
+    TokenResponse tokens = verificationService.generateTokens(user);
+    return new ApiResponse<>(200, "Logged In Successfully", tokens);
   }
 
   public ApiResponse<String> register(RegistrationRequest request) {
@@ -86,11 +77,12 @@ public class UserAccountService {
   }
 
   public ApiResponse<?> validateOTP(OTPRequest request) {
+    String email = emailValidator.normalize(request.getEmail());
     OtpType type = request.getType();
 
     User user;
     try {
-      user = userService.getUserByEmail(request.getEmail());
+      user = userService.getUserByEmail(email);
     } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
@@ -136,7 +128,6 @@ public class UserAccountService {
         return new ApiResponse<>(200, "OTP verified", null);
     }
   }
-
 
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
