@@ -9,21 +9,23 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.function.Function;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class UserNameService {
 
-  private static final String SECRET_KEY = "7de8e1761eeac40efc9314980ebd00fbd55978f497b50ffee42902bba14d0596";
+  @Value("${SECRET_KEY}")
+  private String secretKey;
 
   private SecretKey getSigningKey() {
-    byte[] keyBytes = SECRET_KEY.getBytes(StandardCharsets.UTF_8);
+    byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
     return Keys.hmacShaKeyFor(keyBytes);
   }
 
   public String generateToken(UserDetails userDetails) {
 
     long nowMillis = System.currentTimeMillis();
-    long expMillis = nowMillis + 1000L * 60 * 60 * 24; // 24h
+    long expMillis = nowMillis + 1000L * 60 * 60 * 24;
 
     return Jwts.builder()
       .claim("sub", userDetails.getUsername())
