@@ -4,6 +4,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisService {
@@ -27,6 +28,13 @@ public class RedisService {
     }
 
     public boolean exists(String key) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        return redisTemplate.hasKey(key);
     }
+
+    public Long getLiveTime(String key) {
+        Long liveTime = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        if (liveTime < 0) return 0L;
+        return liveTime;
+    }
+
 }

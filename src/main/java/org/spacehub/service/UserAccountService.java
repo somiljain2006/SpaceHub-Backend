@@ -6,30 +6,31 @@ import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.OtpType;
 import org.spacehub.security.EmailValidator;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserAccountService {
 
   private final VerificationService verificationService;
-  private final RegistrationService registrationService;
   private final EmailValidator emailValidator;
   private final OTPService otpService;
   private final UserService userService;
   private final RefreshTokenService refreshTokenService;
+  private final PasswordEncoder passwordEncoder;
 
   public UserAccountService(VerificationService verificationService,
-                            RegistrationService registrationService,
                             EmailValidator emailValidator,
                             OTPService otpService,
                             UserService userService,
-                            RefreshTokenService refreshTokenService) {
+                            RefreshTokenService refreshTokenService,
+                            PasswordEncoder passwordEncoder) {
     this.verificationService = verificationService;
-    this.registrationService = registrationService;
     this.emailValidator = emailValidator;
     this.otpService = otpService;
     this.userService = userService;
     this.refreshTokenService = refreshTokenService;
+    this.passwordEncoder = passwordEncoder;
   }
 
   public ApiResponse<TokenResponse> login(LoginRequest request) {
@@ -54,27 +55,28 @@ public class UserAccountService {
   public ApiResponse<String> register(RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
+    if (userService.existsByEmail(email)) {
+      return new ApiResponse<>(400, "User already exists", null);
+    }
+
     if (otpService.isInCooldown(email, OtpType.REGISTRATION)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.REGISTRATION);
       return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before registering again.", null);
+              "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    request.setEmail(email);
     try {
-      User user = registrationService.register(request);
-      user.setIsVerifiedRegistration(false);
-      userService.save(user);
+      request.setPassword(passwordEncoder.encode(request.getPassword()));
+      otpService.saveTempOtp(email, request);
 
       otpService.sendOTP(email, OtpType.REGISTRATION);
-      return new ApiResponse<>(201,
-        "OTP sent. Complete registration by validating OTP.", null);
-    } catch (IllegalStateException e) {
-      return new ApiResponse<>(400, e.getMessage(), null);
+
+      return new ApiResponse<>(201, "OTP sent. Complete registration by validating OTP.", null);
     } catch (Exception e) {
       return new ApiResponse<>(500, "Registration failed", null);
     }
   }
+
 
   public ApiResponse<?> validateOTP(OTPRequest request) {
     String email = emailValidator.normalize(request.getEmail());
@@ -100,11 +102,23 @@ public class UserAccountService {
 
     switch (type) {
       case REGISTRATION:
-        if (user.getIsVerifiedRegistration()) {
-          return new ApiResponse<>(400, "User is already registered", null);
+        if (userService.existsByEmail(email)) {
+          return new ApiResponse<>(400, "User already registered", null);
         }
-        user.setIsVerifiedRegistration(true);
-        userService.save(user);
+
+        RegistrationRequest tempRequest = otpService.getTempOtp(email);
+        if (tempRequest == null) {
+          return new ApiResponse<>(400, "Registration session expired", null);
+        }
+
+        User newUser = new User();
+        newUser.setEmail(email);
+        newUser.setPassword(passwordEncoder.encode(tempRequest.getPassword()));
+        newUser.setIsVerifiedRegistration(true);
+        userService.save(newUser);
+
+        otpService.deleteTempOtp(email);
+
         return new ApiResponse<>(200, "Registration verified successfully", null);
 
       case LOGIN:
