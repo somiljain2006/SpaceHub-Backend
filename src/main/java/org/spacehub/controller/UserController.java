@@ -36,9 +36,9 @@ public class UserController {
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
-  @GetMapping("/forgotpassword")
-  public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
-    ApiResponse<String> resp = accountService.forgotPassword(email);
+  @PostMapping("/forgotpassword")
+  public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    ApiResponse<String> resp = accountService.forgotPassword(request.getEmail());
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
