@@ -8,22 +8,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+  private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+  @Value("${spring.mail.username}")
+  private String fromEmail;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+  public EmailService(JavaMailSender mailSender) {
+    this.mailSender = mailSender;
+  }
 
-    public void sendEmail(String to, String body) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject("OTP Verification");
-        message.setText(body);
-        mailSender.send(message);
-    }
+  public void sendEmail(String to, String body) {
+    SimpleMailMessage message = new SimpleMailMessage();
+    message.setFrom(fromEmail);
+    message.setTo(to);
+    message.setSubject("OTP Verification");
+    message.setText(body);
+    mailSender.send(message);
+  }
 
 }
