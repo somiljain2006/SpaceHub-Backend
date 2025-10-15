@@ -35,19 +35,9 @@ public class UserAccountService {
   public ApiResponse<TokenResponse> login(LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
-    if (otpService.isInCooldown(email, OtpType.LOGIN)) {
-      long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
-      return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before trying to login again.",
-        null);
-    }
-
     User user;
     try {
       user = userService.getUserByEmail(email);
-      if (!user.getIsVerifiedRegistration()) {
-        return new ApiResponse<>(400, "Register first", null);
-      }
     } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
@@ -56,8 +46,7 @@ public class UserAccountService {
       return new ApiResponse<>(400, "Invalid credentials", null);
     }
 
-    otpService.sendOTP(email, OtpType.LOGIN);
-    return new ApiResponse<>(200, "OTP sent for login verification", null);
+    return new ApiResponse<>(200, "Logged In Successfully", null);
   }
 
   public ApiResponse<String> register(RegistrationRequest request) {
