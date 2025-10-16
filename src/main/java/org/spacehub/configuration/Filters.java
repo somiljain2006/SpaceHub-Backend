@@ -1,9 +1,11 @@
 package org.spacehub.configuration;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.spacehub.entities.User;
 import org.spacehub.service.UserNameService;
 import org.spacehub.service.UserService;
 import org.springframework.lang.NonNull;
@@ -14,6 +16,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
+import java.util.function.Function;
 
 @Component
 public class Filters extends OncePerRequestFilter {
@@ -43,10 +46,14 @@ public class Filters extends OncePerRequestFilter {
 
     if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
       UserDetails userDetails = userService.loadUserByUsername(userEmail);
-      if (usernameService.validToken(token, userDetails)) {
+      User user = (User) userDetails;
+
+      Claims claims = usernameService.extractClaim(token, Function.identity());
+      int tokenVersion = (Integer) claims.get("passwordVersion");
+
+      if (usernameService.validToken(token, user) && tokenVersion == user.getPasswordVersion()) {
         UsernamePasswordAuthenticationToken authToken =
-          new UsernamePasswordAuthenticationToken(userDetails, null,
-            userDetails.getAuthorities());
+          new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authToken);
       }

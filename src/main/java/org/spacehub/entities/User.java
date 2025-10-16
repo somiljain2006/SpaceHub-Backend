@@ -49,6 +49,7 @@ public class User implements UserDetails {
   private Boolean isVerifiedRegistration = false;
   private Boolean isVerifiedLogin = false;
   private Boolean isVerifiedForgot = false;
+  private Integer passwordVersion = 0;
 
   public User(String firstName,
                  String lastName,

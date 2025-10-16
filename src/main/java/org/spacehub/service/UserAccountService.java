@@ -214,17 +214,27 @@ public class UserAccountService {
         null);
     }
 
+    User user;
     try {
-      userService.getUserByEmail(email);
+      user = userService.getUserByEmail(email);
     } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
 
-    userService.updatePassword(email, passwordEncoder.encode(newPassword));
+    user.setPassword(passwordEncoder.encode(newPassword));
+    int currentVersion;
+    if (user.getPasswordVersion() != null) {
+      currentVersion = user.getPasswordVersion();
+    } else {
+      currentVersion = 0;
+    }
+    user.setPasswordVersion(currentVersion + 1);
+    userService.save(user);
     redisService.deleteValue("TEMP_RESET_" + email);
 
     return new ApiResponse<>(200, "Password has been reset successfully", null);
   }
+
 
   public ApiResponse<String> logout(RefreshRequest request) {
     if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {

@@ -3,6 +3,7 @@ package org.spacehub.service;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.spacehub.entities.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
@@ -27,8 +28,17 @@ public class UserNameService {
     long nowMillis = System.currentTimeMillis();
     long expMillis = nowMillis + 1000L * 60 * 60 * 24;
 
+    int passwordVersion = 0;
+    if (userDetails instanceof User) {
+      Integer version = ((User) userDetails).getPasswordVersion();
+      if (version != null) {
+        passwordVersion = version;
+      }
+    }
+
     return Jwts.builder()
       .claim("sub", userDetails.getUsername())
+      .claim("passwordVersion", passwordVersion)
       .claim("iat", nowMillis / 1000L)
       .claim("exp", expMillis / 1000L)
       .signWith(getSigningKey())
