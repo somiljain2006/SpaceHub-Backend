@@ -1,16 +1,11 @@
 package org.spacehub.DTO;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.springframework.stereotype.Service;
+import lombok.Setter;
 
-@NoArgsConstructor
 @Getter
-@Service
+@Setter
 public class ResendOtpRequest {
   private String email;
-
-  public ResendOtpRequest(String email) {
-    this.email = email;
-  }
+  private String sessionToken;
 }

@@ -62,7 +62,7 @@ public class UserController {
 
   @PostMapping("/resendotp")
   public ResponseEntity<ApiResponse<String>> resendOTP(@RequestBody ResendOtpRequest request) {
-    ApiResponse<String> resp = accountService.resendOTP(request.getEmail());
+    ApiResponse<String> resp = accountService.resendOTP(request.getEmail(), request.getSessionToken());
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
