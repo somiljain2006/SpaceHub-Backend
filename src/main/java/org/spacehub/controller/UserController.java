@@ -42,6 +42,12 @@ public class UserController {
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
+  @PostMapping("/validateforgototp")
+  public ResponseEntity<ApiResponse<String>> validateForgotOtp(@RequestBody ValidateForgotOtpRequest request) {
+    ApiResponse<String> resp = accountService.validateForgotPasswordOtp(request);
+    return ResponseEntity.status(resp.getStatus()).body(resp);
+  }
+
   @PostMapping("/resetpassword")
   public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody ResetPasswordRequest request) {
     ApiResponse<String> resp = accountService.resetPassword(request);

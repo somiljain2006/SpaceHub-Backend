@@ -20,19 +20,27 @@ public class UserAccountService {
   private final UserService userService;
   private final RefreshTokenService refreshTokenService;
   private final PasswordEncoder passwordEncoder;
+  private final RedisService redisService;
+  private final UserNameService userNameService;
+
+  private static final int TEMP_TOKEN_EXPIRE = 300;
 
   public UserAccountService(VerificationService verificationService,
                             EmailValidator emailValidator,
                             OTPService otpService,
                             UserService userService,
                             RefreshTokenService refreshTokenService,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder,
+                            RedisService redisService,
+                            UserNameService userNameService) {
     this.verificationService = verificationService;
     this.emailValidator = emailValidator;
     this.otpService = otpService;
     this.userService = userService;
     this.refreshTokenService = refreshTokenService;
     this.passwordEncoder = passwordEncoder;
+    this.redisService = redisService;
+    this.userNameService = userNameService;
   }
 
   public ApiResponse<TokenResponse> login(LoginRequest request) {
@@ -157,7 +165,7 @@ public class UserAccountService {
     if (otpService.isInCooldown(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
       long secondsLeft = otpService.cooldownTime(normalizedEmail, OtpType.FORGOT_PASSWORD);
       return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
+              "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
     otpService.sendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD);
@@ -165,45 +173,24 @@ public class UserAccountService {
   }
 
   public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
-
-    if (request == null || request.getEmail() == null || request.getOtp() == null || request.getNewPassword() == null) {
-      return new ApiResponse<>(400, "Email, OTP, and new password are required", null);
-    }
-
     String email = emailValidator.normalize(request.getEmail());
+    String tempToken = request.getTempToken();
     String newPassword = request.getNewPassword();
-    String otp = request.getOtp();
+
+    String savedToken = redisService.getValue("TEMP_RESET_" + email);
+    if (savedToken == null || !savedToken.equals(tempToken)) {
+      return new ApiResponse<>(401, "Unauthorized. OTP not validated or token expired.", null);
+    }
 
     User user;
     try {
       user = userService.getUserByEmail(email);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
 
-    OtpType type = OtpType.FORGOT_PASSWORD;
-
-    if (otpService.isBlocked(email, type)) {
-      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
-    }
-    if (otpService.isUsed(email, type)) {
-      return new ApiResponse<>(400, "OTP has already been used", null);
-    }
-
-    boolean valid = otpService.validateOTP(email, otp, type);
-    if (!valid) {
-      long attempts = otpService.incrementOtpAttempts(email, type);
-      if (attempts >= 3) {
-        otpService.blockOtp(email, type);
-        return new ApiResponse<>(429, "Too many invalid OTP attempts. Please request a new OTP.", null);
-      }
-      return new ApiResponse<>(400, "Invalid or expired OTP. Attempts left: " + (3 - attempts), null);
-    }
-
-    otpService.markAsUsed(email, otp, type);
-
-    userService.updatePassword(email, newPassword);
+    userService.updatePassword(email, passwordEncoder.encode(newPassword));
+    redisService.deleteValue("TEMP_RESET_" + email);
 
     return new ApiResponse<>(200, "Password has been reset successfully", null);
   }
@@ -284,5 +271,35 @@ public class UserAccountService {
     return new ApiResponse<>(200, "OTP resent successfully. Check your email.", null);
   }
 
+  public ApiResponse<String> validateForgotPasswordOtp(ValidateForgotOtpRequest request) {
+    String email = emailValidator.normalize(request.getEmail());
+    String otp = request.getOtp();
+
+    if (otpService.isBlocked(email, OtpType.FORGOT_PASSWORD)) {
+      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
+    }
+
+    if (otpService.isUsed(email, OtpType.FORGOT_PASSWORD)) {
+      return new ApiResponse<>(400, "OTP has already been used", null);
+    }
+
+    boolean valid = otpService.validateOTP(email, otp, OtpType.FORGOT_PASSWORD);
+    if (!valid) {
+      long attempts = otpService.incrementOtpAttempts(email, OtpType.FORGOT_PASSWORD);
+      if (attempts >= 3) {
+        otpService.blockOtp(email, OtpType.FORGOT_PASSWORD);
+        return new ApiResponse<>(429, "Too many invalid OTP attempts. Request a new OTP.", null);
+      }
+      return new ApiResponse<>(400, "Invalid or expired OTP. Attempts left: " + (3 - attempts), null);
+    }
+
+    otpService.markAsUsed(email, otp, OtpType.FORGOT_PASSWORD);
+
+    User user = userService.getUserByEmail(email);
+    String tempToken = userNameService.generateToken(user);
+    redisService.saveValue("TEMP_RESET_" + email, tempToken, TEMP_TOKEN_EXPIRE);
+
+    return new ApiResponse<>(200, "OTP validated successfully", tempToken);
+  }
 
 }
