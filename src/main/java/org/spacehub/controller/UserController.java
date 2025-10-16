@@ -66,4 +66,10 @@ public class UserController {
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
+  @PostMapping("/resendforgototp")
+  public ResponseEntity<ApiResponse<String>> resendForgotPasswordOtp(@RequestBody ResendForgotOtpRequest request) {
+    ApiResponse<String> resp = accountService.resendForgotPasswordOtp(request.getTempToken());
+    return ResponseEntity.status(resp.getStatus()).body(resp);
+  }
+
 }

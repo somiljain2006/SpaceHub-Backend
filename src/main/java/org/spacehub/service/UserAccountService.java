@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class UserAccountService {
 
@@ -24,6 +26,7 @@ public class UserAccountService {
   private final UserNameService userNameService;
 
   private static final int TEMP_TOKEN_EXPIRE = 300;
+  private static final int OTP_EXPIRE = 300;
 
   public UserAccountService(VerificationService verificationService,
                             EmailValidator emailValidator,
@@ -159,10 +162,12 @@ public class UserAccountService {
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
 
+    User user;
     try {
-      userService.getUserByEmail(normalizedEmail);
-    } catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
+      user = userService.getUserByEmail(normalizedEmail);
+    }
+    catch (Exception e) {
+      return new ApiResponse<>(200, "If this email is registered, an OTP has been sent.", null);
     }
 
     if (otpService.isInCooldown(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
@@ -171,8 +176,8 @@ public class UserAccountService {
               "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    otpService.sendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD);
-    return new ApiResponse<>(200, "OTP sent to your email", null);
+    String tempToken = otpService.sendOTPWithTempToken(user, OtpType.FORGOT_PASSWORD);
+    return new ApiResponse<>(200, "OTP sent to your email", tempToken);
   }
 
   public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
@@ -244,6 +249,7 @@ public class UserAccountService {
       userService.save(newUser);
 
       otpService.deleteTempOtp(email);
+      otpService.deleteOTP(email, OtpType.REGISTRATION);
 
       return new ApiResponse<>(200, "Registration verified successfully", null);
 
@@ -311,5 +317,32 @@ public class UserAccountService {
 
     return new ApiResponse<>(200, "OTP validated successfully", tokenResponse);
   }
+
+  public ApiResponse<String> resendForgotPasswordOtp(String tempToken) {
+    String email = otpService.extractEmailFromToken(tempToken, OtpType.FORGOT_PASSWORD);
+
+    if (email == null) {
+      return new ApiResponse<>(403, "Session expired or invalid", null);
+    }
+
+    if (otpService.isInCooldown(email, OtpType.FORGOT_PASSWORD)) {
+      long secondsLeft = otpService.cooldownTime(email, OtpType.FORGOT_PASSWORD);
+      return new ApiResponse<>(400, "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
+    }
+
+    User user;
+    try {
+      user = userService.getUserByEmail(email);
+    } catch (Exception e) {
+      return new ApiResponse<>(404, "User not found", null);
+    }
+
+    String newTempToken = otpService.sendOTPWithTempToken(user, OtpType.FORGOT_PASSWORD);
+
+    otpService.deleteTempToken(email, OtpType.FORGOT_PASSWORD, tempToken);
+
+    return new ApiResponse<>(200, "OTP resent successfully. Check your email.", newTempToken);
+  }
+
 
 }
