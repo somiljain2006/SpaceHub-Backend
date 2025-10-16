@@ -97,7 +97,6 @@ public class UserAccountService {
     }
   }
 
-
   public ApiResponse<String> register(RegistrationRequest request) {
 
     if (request == null) {
@@ -180,6 +179,11 @@ public class UserAccountService {
   }
 
   public ApiResponse<String> forgotPassword(String email) {
+
+    if(email == null){
+      return new ApiResponse<>(400, "Email is required", null);
+    }
+
     String normalizedEmail = emailValidator.normalize(email);
 
     User user;
