@@ -102,6 +102,12 @@ public class OTPService {
     redisService.deleteValue(key);
   }
 
+  public void deleteOTP(String email, OtpType type) {
+    String key = type.name().toLowerCase() + ":" + email;
+
+    redisService.deleteValue(key);
+  }
+
   public long incrementOtpAttempts(String email, OtpType type) {
     String attemptKey = "OTP_ATTEMPTS_" + type + "_" + email;
     Long attempts = redisService.incrementValue(attemptKey);

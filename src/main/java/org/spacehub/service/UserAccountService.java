@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class UserAccountService {
 
@@ -24,6 +26,7 @@ public class UserAccountService {
   private final UserNameService userNameService;
 
   private static final int TEMP_TOKEN_EXPIRE = 300;
+  private static final int OTP_EXPIRE = 300;
 
   public UserAccountService(VerificationService verificationService,
                             EmailValidator emailValidator,
@@ -156,10 +159,12 @@ public class UserAccountService {
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
 
+    User user;
     try {
-      userService.getUserByEmail(normalizedEmail);
-    } catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
+      user = userService.getUserByEmail(normalizedEmail);
+    }
+    catch (Exception e) {
+      return new ApiResponse<>(200, "If this email is registered, an OTP has been sent.", null);
     }
 
     if (otpService.isInCooldown(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
@@ -167,6 +172,9 @@ public class UserAccountService {
       return new ApiResponse<>(400,
               "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
+
+    String tempToken = UUID.randomUUID().toString();
+    redisService.saveValue("FORGOT_PASSWORD_" + tempToken, normalizedEmail, OTP_EXPIRE);
 
     otpService.sendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD);
     return new ApiResponse<>(200, "OTP sent to your email", null);
@@ -232,7 +240,7 @@ public class UserAccountService {
       newUser.setFirstName(tempRequest.getFirstName());
       newUser.setLastName(tempRequest.getLastName());
       newUser.setEmail(email);
-      newUser.setPassword(tempRequest.getPassword()); // Already encoded during registration
+      newUser.setPassword(tempRequest.getPassword());
       newUser.setIsVerifiedRegistration(true);
       newUser.setEnabled(true);
       newUser.setLocked(false);
@@ -241,6 +249,7 @@ public class UserAccountService {
       userService.save(newUser);
 
       otpService.deleteTempOtp(email);
+      otpService.deleteOTP(email, OtpType.REGISTRATION);
 
       return new ApiResponse<>(200, "Registration verified successfully", null);
 
@@ -300,6 +309,27 @@ public class UserAccountService {
     redisService.saveValue("TEMP_RESET_" + email, tempToken, TEMP_TOKEN_EXPIRE);
 
     return new ApiResponse<>(200, "OTP validated successfully", tempToken);
+  }
+
+  public ApiResponse<String> resendForgotPasswordOtp(String tempToken) {
+    String key = "FORGOT_PASSWORD_" + tempToken;
+    String email = redisService.getValue(key);
+
+    if (email == null) {
+      return new ApiResponse<>(403, "Session expired or invalid", null);
+    }
+
+    if (otpService.isInCooldown(email, OtpType.FORGOT_PASSWORD)) {
+      long secondsLeft = otpService.cooldownTime(email, OtpType.FORGOT_PASSWORD);
+      return new ApiResponse<>(400, "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
+    }
+
+    String newTempToken = UUID.randomUUID().toString();
+    redisService.saveValue("FORGOT_PASSWORD_" + newTempToken, email, OTP_EXPIRE);
+    redisService.deleteValue(tempToken);
+
+    otpService.sendOTP(email, OtpType.FORGOT_PASSWORD);
+    return new ApiResponse<>(200, "OTP resent successfully. Check your email.", null);
   }
 
 }
