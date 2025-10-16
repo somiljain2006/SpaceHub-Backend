@@ -5,72 +5,79 @@ import org.spacehub.entities.ApiResponse;
 import org.spacehub.entities.User;
 import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.OtpType;
+import org.spacehub.entities.UserRole;
 import org.spacehub.security.EmailValidator;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserAccountService {
 
   private final VerificationService verificationService;
-  private final RegistrationService registrationService;
   private final EmailValidator emailValidator;
   private final OTPService otpService;
   private final UserService userService;
   private final RefreshTokenService refreshTokenService;
+  private final PasswordEncoder passwordEncoder;
 
   public UserAccountService(VerificationService verificationService,
-                            RegistrationService registrationService,
                             EmailValidator emailValidator,
                             OTPService otpService,
                             UserService userService,
-                            RefreshTokenService refreshTokenService) {
+                            RefreshTokenService refreshTokenService,
+                            PasswordEncoder passwordEncoder) {
     this.verificationService = verificationService;
-    this.registrationService = registrationService;
     this.emailValidator = emailValidator;
     this.otpService = otpService;
     this.userService = userService;
     this.refreshTokenService = refreshTokenService;
+    this.passwordEncoder = passwordEncoder;
   }
 
   public ApiResponse<TokenResponse> login(LoginRequest request) {
     String email = emailValidator.normalize(request.getEmail());
-
     User user;
     try {
       user = userService.getUserByEmail(email);
     } catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
-
+    if (!Boolean.TRUE.equals(user.getEnabled())) {
+      return new ApiResponse<>(400, "Account not enabled. " +
+        "Please verify your email/OTP first.", null);
+    }
     if (!verificationService.checkCredentials(user.getEmail(), request.getPassword())) {
       return new ApiResponse<>(400, "Invalid credentials", null);
     }
-    user.setIsVerifiedLogin(true);
-    userService.save(user);
-    TokenResponse tokens = verificationService.generateTokens(user);
-    return new ApiResponse<>(200, "Logged In Successfully", tokens);
+    if (otpService.isInCooldown(email, OtpType.LOGIN)) {
+      long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
+      return new ApiResponse<>(400,
+        "Please wait " + secondsLeft + " seconds before requesting another login OTP.",
+        null);
+    }
+    otpService.sendOTP(email, OtpType.LOGIN);
+    return new ApiResponse<>(200, "OTP sent for login verification", null);
   }
 
   public ApiResponse<String> register(RegistrationRequest request) {
     String email = emailValidator.normalize(request.getEmail());
 
+    if (userService.existsByEmail(email)) {
+      return new ApiResponse<>(400, "User already exists", null);
+    }
+
     if (otpService.isInCooldown(email, OtpType.REGISTRATION)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.REGISTRATION);
       return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before registering again.", null);
+        "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    request.setEmail(email);
     try {
-      User user = registrationService.register(request);
-      user.setIsVerifiedRegistration(false);
-      userService.save(user);
-
+      request.setEmail(email);
+      otpService.saveTempOtp(email, request);
       otpService.sendOTP(email, OtpType.REGISTRATION);
-      return new ApiResponse<>(201,
-        "OTP sent. Complete registration by validating OTP.", null);
-    } catch (IllegalStateException e) {
-      return new ApiResponse<>(400, e.getMessage(), null);
+      return new ApiResponse<>(201, "OTP sent. Complete registration by validating OTP.",
+        null);
     } catch (Exception e) {
       return new ApiResponse<>(500, "Registration failed", null);
     }
@@ -80,54 +87,25 @@ public class UserAccountService {
     String email = emailValidator.normalize(request.getEmail());
     OtpType type = request.getType();
 
-    User user;
-    try {
-      user = userService.getUserByEmail(email);
-    } catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
-    }
-
-    if (otpService.isUsed(request.getEmail(), type)) {
+    if (otpService.isUsed(email, type)) {
       return new ApiResponse<>(400, "OTP has already been used", null);
     }
 
-    boolean valid = otpService.validateOTP(request.getEmail(), request.getOtp(), type);
+    boolean valid = otpService.validateOTP(email, request.getOtp(), type);
     if (!valid) {
       return new ApiResponse<>(400, "OTP is invalid or expired", null);
     }
 
-    otpService.markAsUsed(request.getEmail(), request.getOtp(), type);
+    otpService.markAsUsed(email, request.getOtp(), type);
 
-    switch (type) {
-      case REGISTRATION:
-        if (user.getIsVerifiedRegistration()) {
-          return new ApiResponse<>(400, "User is already registered", null);
-        }
-        user.setIsVerifiedRegistration(true);
-        userService.save(user);
-        return new ApiResponse<>(200, "Registration verified successfully", null);
-
-      case LOGIN:
-        if (user.getIsVerifiedLogin()) {
-          return new ApiResponse<>(400, "User is already logged in", null);
-        }
-        user.setIsVerifiedLogin(true);
-        userService.save(user);
-        TokenResponse tokens = verificationService.generateTokens(user);
-        return new ApiResponse<>(200, "Login verified successfully", tokens);
-
-      case FORGOT_PASSWORD:
-        if (user.getIsVerifiedForgot()) {
-          return new ApiResponse<>(400, "Password reset already verified", null);
-        }
-        user.setIsVerifiedForgot(true);
-        userService.save(user);
-        return new ApiResponse<>(200, "OTP verified. You can reset your password now.", null);
-
-      default:
-        return new ApiResponse<>(200, "OTP verified", null);
-    }
+    return switch (type) {
+      case REGISTRATION -> handleRegistrationOTP(email);
+      case LOGIN -> handleLoginOTP(email);
+      case FORGOT_PASSWORD -> handleForgotPasswordOTP(email);
+    };
   }
+
+
 
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
@@ -184,5 +162,66 @@ public class UserAccountService {
 
     return new ApiResponse<>(200, "Logout successful", null);
   }
-}
 
+  private ApiResponse<?> handleRegistrationOTP(String email) {
+    if (userService.existsByEmail(email)) {
+      return new ApiResponse<>(400, "User already registered", null);
+    }
+
+    RegistrationRequest tempRequest = otpService.getTempOtp(email);
+    if (tempRequest == null) {
+      return new ApiResponse<>(400, "Registration session expired", null);
+    }
+
+    User newUser = new User();
+    newUser.setFirstName(tempRequest.getFirstName());
+    newUser.setLastName(tempRequest.getLastName());
+    newUser.setEmail(email);
+    newUser.setPassword(passwordEncoder.encode(tempRequest.getPassword()));
+    newUser.setIsVerifiedRegistration(true);
+    newUser.setEnabled(true);
+    newUser.setLocked(false);
+    newUser.setUserRole(UserRole.USER);
+    userService.save(newUser);
+    otpService.deleteTempOtp(email);
+
+    return new ApiResponse<>(200, "Registration verified successfully", null);
+  }
+
+  private ApiResponse<?> handleLoginOTP(String email) {
+    User loginUser;
+    try {
+      loginUser = userService.getUserByEmail(email);
+    } catch (Exception e) {
+      return new ApiResponse<>(400, "User not found", null);
+    }
+
+    if (loginUser.getIsVerifiedLogin()) {
+      return new ApiResponse<>(400, "User is already logged in", null);
+    }
+
+    loginUser.setIsVerifiedLogin(true);
+    userService.save(loginUser);
+
+    TokenResponse tokens = verificationService.generateTokens(loginUser);
+    return new ApiResponse<>(200, "Login verified successfully", tokens);
+  }
+
+  private ApiResponse<?> handleForgotPasswordOTP(String email) {
+    User forgotUser;
+    try {
+      forgotUser = userService.getUserByEmail(email);
+    } catch (Exception e) {
+      return new ApiResponse<>(400, "User not found", null);
+    }
+
+    if (forgotUser.getIsVerifiedForgot()) {
+      return new ApiResponse<>(400, "Password reset already verified", null);
+    }
+
+    forgotUser.setIsVerifiedForgot(true);
+    userService.save(forgotUser);
+
+    return new ApiResponse<>(200, "OTP verified. You can reset your password now.", null);
+  }
+}
