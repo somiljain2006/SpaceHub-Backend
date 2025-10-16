@@ -11,11 +11,14 @@ public class OTPService {
 
   private final RedisService redisService;
   private final EmailService emailService;
-  private final ObjectMapper objectMapper = new ObjectMapper();
   private static final SecureRandom random = new SecureRandom();
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
   private static final int OTP_EXPIRE_SECONDS = 300;
   private static final int COOLDOWN_SECONDS = 30;
   private static final int TEMP_REGISTRATION_EXPIRE = 600;
+  private static final int MAX_ATTEMPTS = 3;
+  private static final int BLOCK_DURATION = 300;
 
   public OTPService(RedisService redisService, EmailService emailService) {
     this.redisService = redisService;
@@ -31,9 +34,11 @@ public class OTPService {
     String otp = generateOtp();
     String otpKey = "OTP_" + type + "_" + email;
     String cooldownKey = "OTP_COOLDOWN_" + type + "_" + email;
+
     redisService.saveValue(otpKey, otp, OTP_EXPIRE_SECONDS);
     redisService.saveValue(cooldownKey, "1", COOLDOWN_SECONDS);
-    emailService.sendEmail(email, "Your OTP is: " + otp);
+
+    emailService.sendEmail(email, "Your OTP is: " + otp + ". It will expire in 5 minutes.");
   }
 
   public boolean validateOTP(String email, String otp, OtpType type) {
@@ -50,28 +55,31 @@ public class OTPService {
   public void markAsUsed(String email, String otp, OtpType type) {
     String usedKey = "OTP_USED_" + type + "_" + email;
     redisService.saveValue(usedKey, otp, OTP_EXPIRE_SECONDS);
+
     String otpKey = "OTP_" + type + "_" + email;
     redisService.deleteValue(otpKey);
+
+    String attemptKey = "OTP_ATTEMPTS_" + type + "_" + email;
+    redisService.deleteValue(attemptKey);
   }
 
   public boolean isInCooldown(String email, OtpType type) {
-    return cooldownTime(email, type) > 0;
+    String key = "OTP_COOLDOWN_" + type + "_" + email;
+    Long liveTime = redisService.getLiveTime(key);
+    return liveTime != null && liveTime > 0;
   }
 
   public long cooldownTime(String email, OtpType type) {
     String key = "OTP_COOLDOWN_" + type + "_" + email;
-    Long ttl = redisService.getLiveTime(key);
-
-    if (ttl == null || ttl <= 0) return 0;
-    return ttl;
+    Long liveTime = redisService.getLiveTime(key);
+    return (liveTime != null && liveTime > 0) ? liveTime : 0;
   }
 
   public void saveTempOtp(String email, RegistrationRequest request) {
     try {
-      String convertedString = objectMapper.writeValueAsString(request);
-
+      String convertedKey = objectMapper.writeValueAsString(request);
       String key = "REGISTRATION_TEMP_" + email;
-      redisService.saveValue(key, convertedString, TEMP_REGISTRATION_EXPIRE);
+      redisService.saveValue(key, convertedKey, TEMP_REGISTRATION_EXPIRE);
     }
     catch (Exception e) {
       throw new RuntimeException("Failed to save temporary registration", e);
@@ -81,13 +89,10 @@ public class OTPService {
   public RegistrationRequest getTempOtp(String email) {
     try {
       String key = "REGISTRATION_TEMP_" + email;
-      String convertedString = redisService.getValue(key);
-
-      if (convertedString == null) return null;
-
-      return objectMapper.readValue(convertedString, RegistrationRequest.class);
-    }
-    catch (Exception e) {
+      String json = redisService.getValue(key);
+      if (json == null) return null;
+      return objectMapper.readValue(json, RegistrationRequest.class);
+    } catch (Exception e) {
       return null;
     }
   }
@@ -95,6 +100,29 @@ public class OTPService {
   public void deleteTempOtp(String email) {
     String key = "REGISTRATION_TEMP_" + email;
     redisService.deleteValue(key);
+  }
+
+  public void deleteOTP(String email, OtpType type) {
+    String key = type.name().toLowerCase() + ":" + email;
+
+    redisService.deleteValue(key);
+  }
+
+  public long incrementOtpAttempts(String email, OtpType type) {
+    String attemptKey = "OTP_ATTEMPTS_" + type + "_" + email;
+    Long attempts = redisService.incrementValue(attemptKey);
+    if (attempts == 1) redisService.setExpiry(attemptKey, BLOCK_DURATION);
+    return attempts;
+  }
+
+  public void blockOtp(String email, OtpType type) {
+    String blockKey = "OTP_BLOCKED_" + type + "_" + email;
+    redisService.saveValue(blockKey, "1", BLOCK_DURATION);
+  }
+
+  public boolean isBlocked(String email, OtpType type) {
+    String blockKey = "OTP_BLOCKED_" + type + "_" + email;
+    return redisService.exists(blockKey);
   }
 
 }
