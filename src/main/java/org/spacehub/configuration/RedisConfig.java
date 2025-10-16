@@ -12,25 +12,25 @@ import java.time.Duration;
 @Configuration
 public class RedisConfig {
 
-    @Bean
-    public LettuceConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration("localhost", 6379);
+  @Bean
+  public LettuceConnectionFactory redisConnectionFactory() {
+    RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration("localhost", 6379);
 
-        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                .commandTimeout(Duration.ofSeconds(60))
-                .shutdownTimeout(Duration.ofSeconds(10))
-                .build();
+    LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+            .commandTimeout(Duration.ofSeconds(60))
+            .shutdownTimeout(Duration.ofSeconds(10))
+            .build();
 
-        return new LettuceConnectionFactory(redisConfig, clientConfig);
-    }
+    return new LettuceConnectionFactory(redisConfig, clientConfig);
+  }
 
-    @Bean
-    public RedisTemplate<String, Object> redisTemplate(LettuceConnectionFactory connectionFactory) {
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new StringRedisSerializer());
-        return template;
-    }
+  @Bean
+  public RedisTemplate<String, Object> redisTemplate(LettuceConnectionFactory connectionFactory) {
+    RedisTemplate<String, Object> template = new RedisTemplate<>();
+    template.setConnectionFactory(connectionFactory);
+    template.setKeySerializer(new StringRedisSerializer());
+    template.setValueSerializer(new StringRedisSerializer());
+    return template;
+  }
 
 }

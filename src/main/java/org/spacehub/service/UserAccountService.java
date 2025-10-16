@@ -11,8 +11,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
 @Service
 public class UserAccountService {
 
@@ -24,9 +22,7 @@ public class UserAccountService {
   private final PasswordEncoder passwordEncoder;
   private final RedisService redisService;
   private final UserNameService userNameService;
-
   private static final int TEMP_TOKEN_EXPIRE = 300;
-  private static final int OTP_EXPIRE = 300;
 
   public UserAccountService(VerificationService verificationService,
                             EmailValidator emailValidator,
@@ -48,36 +44,59 @@ public class UserAccountService {
 
   public ApiResponse<TokenResponse> login(LoginRequest request) {
 
-    if (request == null || request.getEmail() == null || request.getPassword() == null) {
-      return new ApiResponse<>(400, "Email and password are required", null);
+    ApiResponse<TokenResponse> err = validateLoginRequest(request);
+
+    if (err != null) {
+      return err;
     }
 
     String email = emailValidator.normalize(request.getEmail());
-    User user;
-    try {
-      user = userService.getUserByEmail(email);
-    }
-    catch (UsernameNotFoundException e) {
+    User user = fetchUserOrReturn(email);
+
+    if (user == null) {
       return new ApiResponse<>(404, "User not found", null);
     }
-    catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
-    }
+
     if (!Boolean.TRUE.equals(user.getEnabled())) {
-      return new ApiResponse<>(403, "Account not enabled. " +
-        "Please verify your email/OTP first.", null);
+      return new ApiResponse<>(403, "Account not enabled. Please verify your email/OTP first.",
+        null);
     }
+
     if (!verificationService.checkCredentials(user.getEmail(), request.getPassword())) {
       return new ApiResponse<>(401, "Invalid credentials", null);
     }
-    try {
-      TokenResponse tokens = verificationService.generateTokens(user);
-      return new ApiResponse<>(200, "Logged in successfully", tokens);
-    }
-    catch (Exception e) {
+
+    TokenResponse tokens = generateTokensOrNull(user);
+    if (tokens == null) {
       return new ApiResponse<>(500, "Failed to generate tokens", null);
     }
+
+    return new ApiResponse<>(200, "Logged in successfully", tokens);
   }
+
+  private ApiResponse<TokenResponse> validateLoginRequest(LoginRequest request) {
+    if (request == null || request.getEmail() == null || request.getPassword() == null) {
+      return new ApiResponse<>(400, "Email and password are required", null);
+    }
+    return null;
+  }
+
+  private User fetchUserOrReturn(String email) {
+    try {
+      return userService.getUserByEmail(email);
+    } catch (UsernameNotFoundException e) {
+      return null;
+    }
+  }
+
+  private TokenResponse generateTokensOrNull(User user) {
+    try {
+      return verificationService.generateTokens(user);
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
 
   public ApiResponse<String> register(RegistrationRequest request) {
 
@@ -134,7 +153,8 @@ public class UserAccountService {
     }
 
     if (otpService.isBlocked(email, type)) {
-      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
+      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.",
+        null);
     }
 
     if (otpService.isUsed(email, type)) {
@@ -167,7 +187,8 @@ public class UserAccountService {
       user = userService.getUserByEmail(normalizedEmail);
     }
     catch (Exception e) {
-      return new ApiResponse<>(200, "If this email is registered, an OTP has been sent.", null);
+      return new ApiResponse<>(200, "If this email is registered, an OTP has been sent.",
+        null);
     }
 
     if (otpService.isInCooldown(normalizedEmail, OtpType.FORGOT_PASSWORD)) {
@@ -286,7 +307,8 @@ public class UserAccountService {
     String otp = request.getOtp();
 
     if (otpService.isBlocked(email, OtpType.FORGOT_PASSWORD)) {
-      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
+      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.",
+        null);
     }
 
     if (otpService.isUsed(email, OtpType.FORGOT_PASSWORD)) {
@@ -327,7 +349,8 @@ public class UserAccountService {
 
     if (otpService.isInCooldown(email, OtpType.FORGOT_PASSWORD)) {
       long secondsLeft = otpService.cooldownTime(email, OtpType.FORGOT_PASSWORD);
-      return new ApiResponse<>(400, "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
+      return new ApiResponse<>(400, "Please wait " + secondsLeft +
+        " seconds before requesting OTP again.", null);
     }
 
     User user;
@@ -343,6 +366,4 @@ public class UserAccountService {
 
     return new ApiResponse<>(200, "OTP resent successfully. Check your email.", newTempToken);
   }
-
-
 }

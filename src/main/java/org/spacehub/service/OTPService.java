@@ -141,12 +141,6 @@ public class OTPService {
     return tokenResponse.getAccessToken();
   }
 
-  public boolean validateTempToken(String token, String email, OtpType type) {
-    String key = "TEMP_TOKEN_" + type + "_" + email;
-    String savedToken = redisService.getValue(key);
-    return savedToken != null && savedToken.equals(token);
-  }
-
   public void deleteTempToken(String email, OtpType type, String token) {
     String tempTokenKey = "TEMP_TOKEN_" + type + "_" + email;
     redisService.deleteValue(tempTokenKey);
