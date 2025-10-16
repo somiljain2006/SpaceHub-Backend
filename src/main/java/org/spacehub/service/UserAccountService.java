@@ -173,11 +173,8 @@ public class UserAccountService {
               "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    String tempToken = UUID.randomUUID().toString();
-    redisService.saveValue("FORGOT_PASSWORD_" + tempToken, normalizedEmail, OTP_EXPIRE);
-
-    otpService.sendOTP(normalizedEmail, OtpType.FORGOT_PASSWORD);
-    return new ApiResponse<>(200, "OTP sent to your email", null);
+    String tempToken = otpService.sendOTPWithTempToken(user, OtpType.FORGOT_PASSWORD);
+    return new ApiResponse<>(200, "OTP sent to your email", tempToken);
   }
 
   public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
@@ -312,8 +309,7 @@ public class UserAccountService {
   }
 
   public ApiResponse<String> resendForgotPasswordOtp(String tempToken) {
-    String key = "FORGOT_PASSWORD_" + tempToken;
-    String email = redisService.getValue(key);
+    String email = otpService.extractEmailFromToken(tempToken, OtpType.FORGOT_PASSWORD);
 
     if (email == null) {
       return new ApiResponse<>(403, "Session expired or invalid", null);
@@ -324,12 +320,19 @@ public class UserAccountService {
       return new ApiResponse<>(400, "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    String newTempToken = UUID.randomUUID().toString();
-    redisService.saveValue("FORGOT_PASSWORD_" + newTempToken, email, OTP_EXPIRE);
-    redisService.deleteValue(tempToken);
+    User user;
+    try {
+      user = userService.getUserByEmail(email);
+    } catch (Exception e) {
+      return new ApiResponse<>(404, "User not found", null);
+    }
 
-    otpService.sendOTP(email, OtpType.FORGOT_PASSWORD);
-    return new ApiResponse<>(200, "OTP resent successfully. Check your email.", null);
+    String newTempToken = otpService.sendOTPWithTempToken(user, OtpType.FORGOT_PASSWORD);
+
+    otpService.deleteTempToken(email, OtpType.FORGOT_PASSWORD, tempToken);
+
+    return new ApiResponse<>(200, "OTP resent successfully. Check your email.", newTempToken);
   }
+
 
 }
