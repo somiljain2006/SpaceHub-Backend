@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 @Getter
 @Service
 public class ResendOtpRequest {
-    private String email;
+  private String email;
 
-    public ResendOtpRequest(String email) {
-        this.email = email;
-    }
+  public ResendOtpRequest(String email) {
+    this.email = email;
+  }
 }

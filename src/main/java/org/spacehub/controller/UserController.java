@@ -30,7 +30,7 @@ public class UserController {
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
-  @PostMapping("/validateotp")
+  @PostMapping("/validateregisterotp")
   public ResponseEntity<ApiResponse<?>> validateOTP(@RequestBody OTPRequest request) {
     ApiResponse<?> resp = accountService.validateOTP(request);
     return ResponseEntity.status(resp.getStatus()).body(resp);
@@ -43,8 +43,8 @@ public class UserController {
   }
 
   @PostMapping("/validateforgototp")
-  public ResponseEntity<ApiResponse<String>> validateForgotOtp(@RequestBody ValidateForgotOtpRequest request) {
-    ApiResponse<String> resp = accountService.validateForgotPasswordOtp(request);
+  public ResponseEntity<ApiResponse<TokenResponse>> validateForgotOtp(@RequestBody ValidateForgotOtpRequest request) {
+    ApiResponse<TokenResponse> resp = accountService.validateForgotPasswordOtp(request);
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
