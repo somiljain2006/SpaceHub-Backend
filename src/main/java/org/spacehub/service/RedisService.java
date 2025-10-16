@@ -39,4 +39,12 @@ public class RedisService {
     return liveTime;
   }
 
+  public Long incrementValue(String key) {
+    return redisTemplate.opsForValue().increment(key);
+  }
+
+  public void setExpiry(String key, long seconds) {
+    redisTemplate.expire(key, Duration.ofSeconds(seconds));
+  }
+
 }

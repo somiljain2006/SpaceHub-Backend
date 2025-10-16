@@ -53,4 +53,11 @@ public class UserController {
     ApiResponse<String> resp = accountService.logout(request);
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
+
+  @PostMapping("/resendotp")
+  public ResponseEntity<ApiResponse<String>> resendOTP(@RequestBody ResendOtpRequest request) {
+    ApiResponse<String> resp = accountService.resendOTP(request.getEmail());
+    return ResponseEntity.status(resp.getStatus()).body(resp);
+  }
+
 }

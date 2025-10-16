@@ -7,6 +7,7 @@ import org.spacehub.entities.RegistrationRequest;
 import org.spacehub.entities.OtpType;
 import org.spacehub.entities.UserRole;
 import org.spacehub.security.EmailValidator;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -35,32 +36,49 @@ public class UserAccountService {
   }
 
   public ApiResponse<TokenResponse> login(LoginRequest request) {
+
+    if (request == null || request.getEmail() == null || request.getPassword() == null) {
+      return new ApiResponse<>(400, "Email and password are required", null);
+    }
+
     String email = emailValidator.normalize(request.getEmail());
     User user;
     try {
       user = userService.getUserByEmail(email);
-    } catch (Exception e) {
+    }
+    catch (UsernameNotFoundException e) {
+      return new ApiResponse<>(404, "User not found", null);
+    }
+    catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
     if (!Boolean.TRUE.equals(user.getEnabled())) {
-      return new ApiResponse<>(400, "Account not enabled. " +
+      return new ApiResponse<>(403, "Account not enabled. " +
         "Please verify your email/OTP first.", null);
     }
     if (!verificationService.checkCredentials(user.getEmail(), request.getPassword())) {
-      return new ApiResponse<>(400, "Invalid credentials", null);
+      return new ApiResponse<>(401, "Invalid credentials", null);
     }
-    if (otpService.isInCooldown(email, OtpType.LOGIN)) {
-      long secondsLeft = otpService.cooldownTime(email, OtpType.LOGIN);
-      return new ApiResponse<>(400,
-        "Please wait " + secondsLeft + " seconds before requesting another login OTP.",
-        null);
+    try {
+      TokenResponse tokens = verificationService.generateTokens(user);
+      return new ApiResponse<>(200, "Logged in successfully", tokens);
     }
-    otpService.sendOTP(email, OtpType.LOGIN);
-    return new ApiResponse<>(200, "OTP sent for login verification", null);
+    catch (Exception e) {
+      return new ApiResponse<>(500, "Failed to generate tokens", null);
+    }
   }
 
   public ApiResponse<String> register(RegistrationRequest request) {
+
+    if (request == null) {
+      return new ApiResponse<>(400, "Registration data is required", null);
+    }
+
     String email = emailValidator.normalize(request.getEmail());
+
+    if (email == null || email.isBlank()) {
+      return new ApiResponse<>(400, "Invalid email", null);
+    }
 
     if (userService.existsByEmail(email)) {
       return new ApiResponse<>(400, "User already exists", null);
@@ -73,19 +91,39 @@ public class UserAccountService {
     }
 
     try {
-      request.setEmail(email);
-      otpService.saveTempOtp(email, request);
+      RegistrationRequest tempRegistration = new RegistrationRequest();
+      tempRegistration.setFirstName(request.getFirstName());
+      tempRegistration.setLastName(request.getLastName());
+      tempRegistration.setEmail(email);
+      tempRegistration.setPassword(passwordEncoder.encode(request.getPassword()));
+
+      otpService.saveTempOtp(email, tempRegistration);
+
       otpService.sendOTP(email, OtpType.REGISTRATION);
-      return new ApiResponse<>(201, "OTP sent. Complete registration by validating OTP.",
-        null);
-    } catch (Exception e) {
-      return new ApiResponse<>(500, "Registration failed", null);
+
+      return new ApiResponse<>(201, "OTP sent. Complete registration by validating OTP.", null);
+    }
+    catch (RuntimeException e) {
+      return new ApiResponse<>(500, "Registration failed. Please try again later.", null);
     }
   }
 
   public ApiResponse<?> validateOTP(OTPRequest request) {
+
+    if (request.getEmail() == null || request.getOtp() == null || request.getType() == null) {
+      return new ApiResponse<>(400, "Email, OTP, and OTP type are required.", null);
+    }
+
     String email = emailValidator.normalize(request.getEmail());
     OtpType type = request.getType();
+
+    if (type != OtpType.REGISTRATION) {
+      return new ApiResponse<>(400, "Only registration OTP can be validated here.", null);
+    }
+
+    if (otpService.isBlocked(email, type)) {
+      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
+    }
 
     if (otpService.isUsed(email, type)) {
       return new ApiResponse<>(400, "OTP has already been used", null);
@@ -93,19 +131,19 @@ public class UserAccountService {
 
     boolean valid = otpService.validateOTP(email, request.getOtp(), type);
     if (!valid) {
-      return new ApiResponse<>(400, "OTP is invalid or expired", null);
+      long attempts = otpService.incrementOtpAttempts(email, type);
+      if (attempts >= 3) {
+        otpService.blockOtp(email, type);
+        return new ApiResponse<>(429, "Too many invalid attempts. Please request a new OTP.", null);
+      }
+
+      return new ApiResponse<>(400, "Invalid or expired OTP. Attempts left: " + (3 - attempts), null);
     }
 
     otpService.markAsUsed(email, request.getOtp(), type);
 
-    return switch (type) {
-      case REGISTRATION -> handleRegistrationOTP(email);
-      case LOGIN -> handleLoginOTP(email);
-      case FORGOT_PASSWORD -> handleForgotPasswordOTP(email);
-    };
+    return handleRegistrationOTP(email);
   }
-
-
 
   public ApiResponse<String> forgotPassword(String email) {
     String normalizedEmail = emailValidator.normalize(email);
@@ -127,23 +165,45 @@ public class UserAccountService {
   }
 
   public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
+
+    if (request == null || request.getEmail() == null || request.getOtp() == null || request.getNewPassword() == null) {
+      return new ApiResponse<>(400, "Email, OTP, and new password are required", null);
+    }
+
     String email = emailValidator.normalize(request.getEmail());
     String newPassword = request.getNewPassword();
+    String otp = request.getOtp();
 
     User user;
     try {
       user = userService.getUserByEmail(email);
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       return new ApiResponse<>(400, "User not found", null);
     }
 
-    if (!user.getIsVerifiedForgot()) {
-      return new ApiResponse<>(400, "OTP not verified for password reset", null);
+    OtpType type = OtpType.FORGOT_PASSWORD;
+
+    if (otpService.isBlocked(email, type)) {
+      return new ApiResponse<>(429, "Too many invalid OTP attempts. Try again later.", null);
+    }
+    if (otpService.isUsed(email, type)) {
+      return new ApiResponse<>(400, "OTP has already been used", null);
     }
 
+    boolean valid = otpService.validateOTP(email, otp, type);
+    if (!valid) {
+      long attempts = otpService.incrementOtpAttempts(email, type);
+      if (attempts >= 3) {
+        otpService.blockOtp(email, type);
+        return new ApiResponse<>(429, "Too many invalid OTP attempts. Please request a new OTP.", null);
+      }
+      return new ApiResponse<>(400, "Invalid or expired OTP. Attempts left: " + (3 - attempts), null);
+    }
+
+    otpService.markAsUsed(email, otp, type);
+
     userService.updatePassword(email, newPassword);
-    user.setIsVerifiedForgot(false);
-    userService.save(user);
 
     return new ApiResponse<>(200, "Password has been reset successfully", null);
   }
@@ -164,64 +224,65 @@ public class UserAccountService {
   }
 
   private ApiResponse<?> handleRegistrationOTP(String email) {
-    if (userService.existsByEmail(email)) {
-      return new ApiResponse<>(400, "User already registered", null);
-    }
-
-    RegistrationRequest tempRequest = otpService.getTempOtp(email);
-    if (tempRequest == null) {
-      return new ApiResponse<>(400, "Registration session expired", null);
-    }
-
-    User newUser = new User();
-    newUser.setFirstName(tempRequest.getFirstName());
-    newUser.setLastName(tempRequest.getLastName());
-    newUser.setEmail(email);
-    newUser.setPassword(passwordEncoder.encode(tempRequest.getPassword()));
-    newUser.setIsVerifiedRegistration(true);
-    newUser.setEnabled(true);
-    newUser.setLocked(false);
-    newUser.setUserRole(UserRole.USER);
-    userService.save(newUser);
-    otpService.deleteTempOtp(email);
-
-    return new ApiResponse<>(200, "Registration verified successfully", null);
-  }
-
-  private ApiResponse<?> handleLoginOTP(String email) {
-    User loginUser;
     try {
-      loginUser = userService.getUserByEmail(email);
+      RegistrationRequest tempRequest = otpService.getTempOtp(email);
+      if (tempRequest == null) {
+        return new ApiResponse<>(400, "Registration session expired or not found", null);
+      }
+
+      User existingUser = null;
+      try {
+        existingUser = userService.getUserByEmail(email);
+      }
+      catch (Exception ignored) {
+      }
+
+      if (existingUser != null) {
+        return new ApiResponse<>(400, "User already registered", null);
+      }
+
+      User newUser = new User();
+      newUser.setFirstName(tempRequest.getFirstName());
+      newUser.setLastName(tempRequest.getLastName());
+      newUser.setEmail(email);
+      newUser.setPassword(tempRequest.getPassword()); // Already encoded during registration
+      newUser.setIsVerifiedRegistration(true);
+      newUser.setEnabled(true);
+      newUser.setLocked(false);
+      newUser.setUserRole(UserRole.USER);
+
+      userService.save(newUser);
+
+      otpService.deleteTempOtp(email);
+
+      return new ApiResponse<>(200, "Registration verified successfully", null);
+
     } catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
+      return new ApiResponse<>(500, "Registration verification failed: " + e.getMessage(), null);
     }
-
-    if (loginUser.getIsVerifiedLogin()) {
-      return new ApiResponse<>(400, "User is already logged in", null);
-    }
-
-    loginUser.setIsVerifiedLogin(true);
-    userService.save(loginUser);
-
-    TokenResponse tokens = verificationService.generateTokens(loginUser);
-    return new ApiResponse<>(200, "Login verified successfully", tokens);
   }
 
-  private ApiResponse<?> handleForgotPasswordOTP(String email) {
-    User forgotUser;
+  public ApiResponse<String> resendOTP(String email) {
+    String normalizedEmail = emailValidator.normalize(email);
+
+    User existingUser = null;
     try {
-      forgotUser = userService.getUserByEmail(email);
-    } catch (Exception e) {
-      return new ApiResponse<>(400, "User not found", null);
+      existingUser = userService.getUserByEmail(normalizedEmail);
+      if (existingUser != null && Boolean.TRUE.equals(existingUser.getEnabled())) {
+        return new ApiResponse<>(400, "User already verified. No OTP needed.", null);
+      }
+    } catch (Exception ignored) {
     }
 
-    if (forgotUser.getIsVerifiedForgot()) {
-      return new ApiResponse<>(400, "Password reset already verified", null);
+    if (otpService.isInCooldown(normalizedEmail, OtpType.REGISTRATION)) {
+      long secondsLeft = otpService.cooldownTime(normalizedEmail, OtpType.REGISTRATION);
+      return new ApiResponse<>(400,
+              "Please wait " + secondsLeft + " seconds before requesting OTP again.", null);
     }
 
-    forgotUser.setIsVerifiedForgot(true);
-    userService.save(forgotUser);
-
-    return new ApiResponse<>(200, "OTP verified. You can reset your password now.", null);
+    otpService.sendOTP(normalizedEmail, OtpType.REGISTRATION);
+    return new ApiResponse<>(200, "OTP resent successfully. Check your email.", null);
   }
+
+
 }
