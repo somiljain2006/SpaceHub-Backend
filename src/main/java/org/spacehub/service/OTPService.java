@@ -36,6 +36,9 @@ public class OTPService {
   }
 
   public void sendOTP(String email, OtpType type) {
+    String usedKey = "OTP_USED_" + type + "_" + email;
+    redisService.deleteValue(usedKey);
+
     String otp = generateOtp();
     String otpKey = "OTP_" + type + "_" + email;
     String cooldownKey = "OTP_COOLDOWN_" + type + "_" + email;
