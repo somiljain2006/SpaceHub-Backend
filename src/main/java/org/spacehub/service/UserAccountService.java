@@ -239,7 +239,6 @@ public class UserAccountService {
     return new ApiResponse<>(200, "Password has been reset successfully", null);
   }
 
-
   public ApiResponse<String> logout(RefreshRequest request) {
     if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
       return new ApiResponse<>(400, "Refresh token is required", null);
