@@ -28,30 +28,15 @@ public class SecurityConfiguration {
     this.authenticationProvider = authenticationProvider;
   }
 
-//  @Bean
-//  public CorsConfigurationSource corsConfigurationSource() {
-//    CorsConfiguration config = new CorsConfiguration();
-//    config.setAllowedOrigins(List.of("https://space-hub-frontend.vercel.app"));
-//    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-//    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin",
-//            "X-Requested-With"));
-//    config.setExposedHeaders(List.of("Authorization"));
-//    config.setAllowCredentials(true);
-//    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//    source.registerCorsConfiguration("/**", config);
-//    return source;
-//  }
-
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOriginPatterns(List.of("*"));
+    config.setAllowedOrigins(List.of("https://space-hub-frontend.vercel.app"));
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
     config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin",
             "X-Requested-With"));
     config.setExposedHeaders(List.of("Authorization"));
     config.setAllowCredentials(true);
-
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
     return source;
