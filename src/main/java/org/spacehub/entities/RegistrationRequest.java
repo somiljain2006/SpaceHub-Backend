@@ -19,7 +19,7 @@ public class RegistrationRequest {
 
   @NotBlank(message = "Last name is required")
   @Size(min = 1, max = 50, message = "Last name must be between 1 and 50 characters")
-  @Pattern(regexp = "^[A-Za-z]+$", message = "First name must contain only letters and no spaces")
+  @Pattern(regexp = "^[A-Za-z]+$", message = "Last name must contain only letters and no spaces")
   private String lastName;
 
   @NotBlank(message = "Email is required")
