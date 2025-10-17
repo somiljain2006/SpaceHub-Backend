@@ -182,7 +182,7 @@ public class UserAccountService {
 
   public ApiResponse<String> forgotPassword(String email) {
 
-    if(email == null){
+    if (email == null) {
       return new ApiResponse<>(400, "Email is required", null);
     }
 
@@ -387,8 +387,6 @@ public class UserAccountService {
     }
 
     String newTempToken = otpService.sendOTPWithTempToken(user, OtpType.FORGOT_PASSWORD);
-
-    otpService.deleteTempToken(email, OtpType.FORGOT_PASSWORD, tempToken);
 
     return new ApiResponse<>(200, "OTP resent successfully. Check your email.", newTempToken);
   }

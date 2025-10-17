@@ -30,7 +30,7 @@ public class UserController {
     return ResponseEntity.status(resp.getStatus()).body(resp);
   }
 
-    @PostMapping("/validateregisterotp")
+  @PostMapping("/validateregisterotp")
   public ResponseEntity<ApiResponse<?>> validateOTP(@RequestBody OTPRequest request) {
     ApiResponse<?> resp = accountService.validateOTP(request);
     return ResponseEntity.status(resp.getStatus()).body(resp);
