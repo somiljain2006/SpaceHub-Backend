@@ -34,7 +34,7 @@ public interface CommunityRepository extends JpaRepository<Community, UUID> {
   List<Community> findAllWithPendingUser(@Param("user") User user);
 
   @Query("SELECT c FROM Community c LEFT JOIN FETCH c.communityUsers WHERE c.communityId = :communityId")
-  java.util.Optional<Community> findByCommunityCode(@Param("communityId") java.util.UUID communityId);
+  Optional<Community> findByCommunityCode(@Param("communityId") java.util.UUID communityId);
 
   @Query("""
         SELECT c
