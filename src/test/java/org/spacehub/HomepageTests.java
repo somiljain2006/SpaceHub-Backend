@@ -7,7 +7,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("test")
 class HomepageTests {
-
+// testing in real lifee
   @Test
   void contextLoads() {
   }
